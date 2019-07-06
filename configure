@@ -750,7 +750,7 @@ case $target_list in
     gnuarmeclipse="yes"
     semihosting_native="yes"
     verbose="yes"
-    branding_message="GNU MCU Eclipse"
+    branding_message="xPack"
     # convenience defs
     debug_tcg="yes"
     debug="yes"
