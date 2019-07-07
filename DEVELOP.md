@@ -38,7 +38,8 @@ page.
 
 The Windows development environment is based on Windows 10 and the new
 [WSL (Windows Subsystem for Linux)](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
-subsistem, which allows to install a traditional GNU/Linux distribution on WIndows.
+subsystem, which allows to install a traditional GNU/Linux distribution on 
+Windows.
 
 #### Install WSL
 
@@ -57,10 +58,11 @@ page and install Ubuntu.
 Start the new `ubuntu.exe` (there is also a graphical shortcut).
 
 This step should [initialise the new distro](https://docs.microsoft.com/en-us/windows/wsl/initialize-distro), and when completed, ask for the separate UNIX name.
-Any name is accepted, but to keep things consistent, preferably ue the same name
-as for Windows.
+Any name is accepted, but to keep things consistent, preferably use the same 
+name as for Windows.
 
-When running on a VirtualBox VM, this step may apparently hang, so if the _Installation successful_ message does not arrive after a few minutes and the 
+When running on a VirtualBox VM, this step may apparently hang, so if the 
+_Installation successful_ message does not arrive after a few minutes and the 
 process uses almost no CPU, it probably did hang. In my case it helped to
 enter a space.
 
@@ -80,7 +82,7 @@ The next step is to install
 The Ubuntu file system is mapped to a folder deep down in the `AppData` folder,
 and [its content should not be changed from Windows](https://blogs.msdn.microsoft.com/commandline/2016/11/17/do-not-change-linux-files-using-windows-apps-and-tools/)
 
-However, it is possible for the WSL processes to acces the entire Windows
+However, it is possible for the WSL processes to access the entire Windows
 file system, mounted as `/mnt/c`.
 
 For a convenient access, make soft links from the Ubuntu account back to the
@@ -102,9 +104,11 @@ It can be downloaded from [git-scm.com](https://git-scm.com/download/win).
 #### Install GDB
 
 To run debug session on Windows, the tools available in Ubuntu cannot be used, 
-a Windows gdb.exe is needed.
+a Windows `gdb.exe` is needed.
 
-A good candidate is the one packed in the [MinGW Distro](https://nuwen.net/mingw.html). Get the package without Git, since you already installed the 
+A good candidate is the one packed in the 
+[MinGW Distro](https://nuwen.net/mingw.html). Get the package without 
+Git, since you already installed the 
 most recent Git in the previous step.
 
 Prefer to install in user space, and the default location used in the provided
@@ -130,7 +134,7 @@ For macOS and Windows, the recommended Git client is
 [Sourcetree](https://www.sourcetreeapp.com/).
 
 Since Sourcetree is not available for GNU/Linux, the second choice is
-Git Kraken, which can be downloaded for free from 
+Git Kraken, which can be downloaded for freely from 
 [gitkraken.com](https://www.gitkraken.com/download).
 
 This is an optional step and your selection is not relevant for this
@@ -149,14 +153,14 @@ Amongst the alternate solutions are:
 ### Download the build scripts
 
 The build scripts are available from the separate
-[gnu-mcu-eclipse/qemu-build](https://github.com/gnu-mcu-eclipse/qemu-build) 
+[xpack-dev-tools/qemu-arm-xpack](https://github.com/xpack-dev-tools/qemu-arm-xpack) 
 project.
 
 To download it, run the following command, which will clone the repository,
 including the submodules:
 
 ```console
-$ curl -L https://github.com/gnu-mcu-eclipse/qemu-build/raw/master/scripts/git-clone.sh | bash
+$ curl -L https://github.com/xpack-dev-tools/qemu-arm-xpack/raw/xpack/scripts/git-clone.sh | bash
 ```
 
 ### Initial build
@@ -165,13 +169,13 @@ To build a binary which is suitable for debug sessions, run the
 `build-native.sh` script with the shown options:
 
 ```console
-$ bash ~/Downloads/qemu-build.git/scripts/build-native.sh --debug --develop
+$ bash ~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh --debug --develop
 ```
 
 To build the Windows binaries, use:
 
 ```console
-$ bash ~/Downloads/qemu-build.git/scripts/build-native.sh --debug --develop --win
+$ bash ~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh --debug --develop --win
 ```
 
 The result is the `${HOME}/Work/qemu-dev/${platform}-${arch}` folder. The build 
@@ -209,27 +213,27 @@ preparation for a new build.
 The operation can also be performed manually:
 
 ```console
-$ bash ~/Downloads/qemu-build.git/scripts/build-native.sh clean
+$ bash ~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh clean
 ```
 
 To remove the library folders, use:
 
 ```console
-$ bash ~/Downloads/qemu-build.git/scripts/build-native.sh cleanlibs
+$ bash ~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh cleanlibs
 ```
 
 To remove all:
 
 ```console
-$ bash ~/Downloads/qemu-build.git/scripts/build-native.sh cleanall
+$ bash ~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh cleanall
 ```
 
 To clean the Windows build, the commands are similar:
 
 ```console
-$ bash ~/Downloads/qemu-build.git/scripts/build-native.sh --win clean
-$ bash ~/Downloads/qemu-build.git/scripts/build-native.sh --win cleanlibs
-$ bash ~/Downloads/qemu-build.git/scripts/build-native.sh --win cleanall
+$ bash ~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh --win clean
+$ bash ~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh --win cleanlibs
+$ bash ~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh --win cleanall
 ```
 
 ### Edit & IntelliSense
@@ -258,7 +262,7 @@ as described in the
 Clone the repository in the same `Work` folder:
 
 ```console
-$ cd ${HOME}/Work
+$ cd ~/Work
 $ git clone https://github.com/gnu-mcu-eclipse/qemu-eclipse-test-projects.git qemu-eclipse-test-projects.git
 ```
 
@@ -267,18 +271,19 @@ $ git clone https://github.com/gnu-mcu-eclipse/qemu-eclipse-test-projects.git qe
 VSC also provides decent debugging features. The launchers are
 defined in `.vscode/launch.json`.
 
-The executable is started from `${env:HOME}/Work/qemu-dev/${platform}-${arch}/install/qemu/bin/qemu-system-gnuarmeclipse`, or `${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/qemu/bin/qemu-system-gnuarmeclipse.exe` on Windows.
+The executable is started from 
+`${env:HOME}/Work/qemu-dev/${platform}-${arch}/install/qemu/bin/qemu-system-gnuarmeclipse`, or 
+`${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/qemu/bin/qemu-system-gnuarmeclipse.exe` on Windows.
 
 In addition to a test showing the help message, two more launchers
 are defined for each platform, to start the classical STM32F4DISCOVERY 
-blinky project
-created with the GNU MCU Eclipse plug-ins.
+blinky project created with the GNU MCU Eclipse plug-ins.
 
 To start the debug sessions, switch to the debug view (using the debug
 icon in the left bar), and select the launcher in the top combo.
 
-There are separate launchers using LLDB (for macOS) and GDB (for Ubuntu and Windows);
-both start the Debug elf from the `f407-disc-blink-tutorial` project,
+There are separate launchers using LLDB (for macOS) and GDB (for Ubuntu and 
+Windows); both start the Debug elf from the `f407-disc-blink-tutorial` project,
 described above.
 
 #### `HOME` vs `USERPROFILE`
@@ -287,7 +292,7 @@ The environment variables used to define the user home folder
 are different, on macOS and GNU/Linux it is `${env:HOME}`, while on
 Windows it is `${env:USERPROFILE}`.
 
-This genrally makes sharing launcher configurations between
+This generally makes sharing launcher configurations between
 platforms more difficult.
 
 #### `sourceFileMap`
@@ -296,7 +301,7 @@ For Windows, since the build was performed in the Ubuntu WSL
 environment, where paths are below `/home`, it is necessary to
 map them back to the `/Users` folder.
 
-Add the following to the lauch configurations:
+Add the following to the launch configurations:
 
 ```json
       "sourceFileMap": {
@@ -316,7 +321,7 @@ system path, it must be explicitly defined, for example as:
 #### `stopAtEntry`
 
 This option should place a breakpoint in `main()`, but due to the
-comlex startup sequence used by QEMU, it does not work on macOS
+complex startup sequence used by QEMU, it does not work on macOS
 and Windows, so it is disabled, and you should place a manual
 breakpoint in `vl.c: main()`.
 
@@ -336,11 +341,11 @@ Contributions are welcomed, preferably as GitHub pull requests.
 
 For this, the workflow is:
 
-- fork the [gnu-mcu-eclipse/qemu](https://github.com/gnu-mcu-eclipse/qemu) 
+- fork the [xpack-dev-tools/qemu](https://github.com/xpack-dev-tools/qemu) 
 project
 - clone it to a place of your choice
-- create a new branch based on the `gnuarmeclipse-dev` branch
-- link the fork folder to `${HOME}/Work/qemu-dev/` instead of the 
+- create a new branch based on the `xpack-develop` branch
+- link the fork folder to `${HOME}/Work/qemu-arm-dev/` instead of the 
   existing `qemu.git` folder
 - edit-compile-debug until ready
 - commit & push the changes, and mark them as pull requests
