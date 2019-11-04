@@ -3135,9 +3135,12 @@ static void stm32_gpio_realize_callback(DeviceState *dev, Error **errp)
             assert(false);
         }
 
+        // The common state->reg members remain largely uninitialised,
+        // the F1 family has an older map.
+
         // TODO: move to JSON.
-        cm_object_property_set_int(state->reg.bsrr, 0, "persistent-bits");
-        cm_object_property_set_int(state->reg.brr, 0, "persistent-bits");
+        cm_object_property_set_int(state->u.f1.reg.bsrr, 0, "persistent-bits");
+        cm_object_property_set_int(state->u.f1.reg.brr, 0, "persistent-bits");
 
         // Add callbacks.
         peripheral_register_set_post_write(state->u.f1.reg.crl,
