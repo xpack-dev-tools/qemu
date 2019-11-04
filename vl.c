@@ -4518,6 +4518,11 @@ int main(int argc, char **argv, char **envp)
 
     machine_class = select_machine();
 
+#if defined(CONFIG_GNU_MCU_ECLIPSE)
+    // Hack: Kill default to force the use of capabilities.
+    machine_class->default_ram_size = 0;
+#endif /* defined(CONFIG_GNU_MCU_ECLIPSE) */
+
     set_memory_options(&ram_slots, &maxram_size, machine_class);
 
     os_daemonize();
