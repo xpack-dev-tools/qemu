@@ -14,7 +14,7 @@
       "type": "shell",
       "command": "bash",
       "args": [
-        "${HOME}/Downloads/qemu-build.git/scripts/build-native.sh",
+        "${HOME}/Downloads/qemu-arm-xpack.git/scripts/build-native.sh",
         "--debug",
         "--develop"
       ],
@@ -29,7 +29,7 @@
       "type": "shell",
       "command": "bash",
       "args": [
-        "${HOME}/Downloads/qemu-build.git/scripts/build-native.sh",
+        "${HOME}/Downloads/qemu-arm-xpack.git/scripts/build-native.sh",
         "clean"
       ],
       "group": "build",
@@ -44,7 +44,7 @@
       "command": "wsl",
       "args": [
         "bash",
-        "~/Downloads/qemu-build.git/scripts/build-native.sh",
+        "~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh",
         "--debug",
         "--develop",
         "--win"
@@ -61,7 +61,7 @@
       "command": "wsl",
       "args": [
         "bash",
-        "~/Downloads/qemu-build.git/scripts/build-native.sh",
+        "~/Downloads/qemu-arm-xpack.git/scripts/build-native.sh",
         "--win",
         "clean"
       ],

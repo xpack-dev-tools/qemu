@@ -9,7 +9,7 @@
       "name": "(lldb) Launch qemu --help",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:HOME}/Work/qemu-dev/darwin-x64/install/qemu/bin/qemu-system-gnuarmeclipse",
+      "program": "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
       "args": [
         "--help"
       ],
@@ -23,7 +23,7 @@
       "name": "(lldb) Launch qemu f4b-sh --nographic",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:HOME}/Work/qemu-dev/darwin-x64/install/qemu/bin/qemu-system-gnuarmeclipse",
+      "program": "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
       "args": [
         "--verbose",
         "--verbose",
@@ -52,7 +52,7 @@
       "name": "(lldb) Launch qemu f4b-sh (graphic)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:HOME}/Work/qemu-dev/darwin-x64/install/qemu/bin/qemu-system-gnuarmeclipse",
+      "program": "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
       "args": [
         "--verbose",
         "--verbose",
@@ -81,7 +81,7 @@
       "name": "(gdb) Launch qemu --help",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:HOME}/Work/qemu-dev/linux-x64/install/qemu/bin/qemu-system-gnuarmeclipse",
+      "program": "${env:HOME}/Work/qemu-arm-dev/linux-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
       "args": [
         "--help"
       ],
@@ -102,7 +102,7 @@
       "name": "(gdb) Launch qemu f4b-sh --nographic",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:HOME}/Work/qemu-dev/linux-x64/install/qemu/bin/qemu-system-gnuarmeclipse",
+      "program": "${env:HOME}/Work/qemu-arm-dev/linux-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
       "args": [
         "--verbose",
         "--verbose",
@@ -138,7 +138,7 @@
       "name": "(gdb) Launch qemu f4b-sh (graphic)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:HOME}/Work/qemu-dev/linux-x64/install/qemu/bin/qemu-system-gnuarmeclipse",
+      "program": "${env:HOME}/Work/qemu-arm-dev/linux-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
       "args": [
         "--verbose",
         "--verbose",
@@ -174,7 +174,7 @@
       "name": "(mingw-gdb) Launch qemu --help",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/qemu/bin/qemu-system-gnuarmeclipse.exe",
+      "program": "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse.exe",
       "args": [
         "--help"
       ],
@@ -199,7 +199,7 @@
       "name": "(mingw-gdb) Launch qemu f4b-sh --nographic",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/qemu/bin/qemu-system-gnuarmeclipse.exe",
+      "program": "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse.exe",
       "args": [
         "--verbose",
         "--verbose",
@@ -239,7 +239,7 @@
       "name": "(mingw-gdb) Launch qemu f4b-sh (graphic)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/qemu/bin/qemu-system-gnuarmeclipse.exe",
+      "program": "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse.exe",
       "args": [
         "--verbose",
         "--verbose",
