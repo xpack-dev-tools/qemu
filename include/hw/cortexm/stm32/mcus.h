@@ -34,6 +34,7 @@
 
 // Medium density
 #define TYPE_STM32F103RB "STM32F103RB"
+#define TYPE_STM32F103C8 "STM32F103C8"
 
 // Connectivity line
 #define TYPE_STM32F107VC "STM32F107VC"

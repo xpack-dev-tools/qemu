@@ -61,7 +61,7 @@ static void bluepill_board_init_callback(MachineState *machine)
 
     {
         // Create the MCU
-        Object *mcu = cm_object_new_mcu(machine, TYPE_STM32F103RB);
+        Object *mcu = cm_object_new_mcu(machine, TYPE_STM32F103C8);
 
         cm_object_property_set_int(mcu, 8000000, "hse-freq-hz"); // 8.0 MHz
         cm_object_property_set_int(mcu, 0, "lse-freq-hz"); // N/A
