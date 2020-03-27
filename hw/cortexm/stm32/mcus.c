@@ -954,6 +954,19 @@ static const STM32PartInfo stm32_mcus[] = {
     /**/
     },
     {
+        .name = TYPE_STM32F103C8, // STM32F103x[8B]
+        .cortexm = {
+            .flash_size_kb = 64,
+            .sram_size_kb = 20,
+
+            .svd_file_name = "STM32F103xx-qemu.json",
+            .svd_device_name = "STM32F103xx",
+        /**/
+        },
+        .stm32 = &stm32f103x8b,
+    /**/
+    },
+    {
         .name = TYPE_STM32F107VC,
         .cortexm = {
             .flash_size_kb = 256,

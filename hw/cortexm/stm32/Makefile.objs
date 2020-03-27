@@ -1,6 +1,6 @@
 # [GNU MCU Eclipse]
 
-obj-$(CONFIG_STM32) += boards-discovery.o boards-olimex.o boards-duino.o boards-nucleo.o
+obj-$(CONFIG_STM32) += boards-discovery.o boards-olimex.o boards-duino.o boards-nucleo.o boards-bluepill.o
 obj-$(CONFIG_STM32) += mcu.o mcus.o 
 obj-$(CONFIG_STM32) += sys-bus-device.o 
 obj-$(CONFIG_STM32) += rcc.o 
