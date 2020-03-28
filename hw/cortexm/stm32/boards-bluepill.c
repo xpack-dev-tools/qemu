@@ -28,12 +28,12 @@
 static GPIOLEDInfo bluepill_leds_info[] = {
     {
         .name = "led:red",
-        .active_low = false,
-        .colour_name = "red",
+        .active_low = true,
+        .colour_name = "green",
         .x = 545,
-        .y = 200,
-        .w = 14,
-        .h = 22,
+        .y = 201, // 200,
+        .w = 15, // 14,
+        .h = 18, // 22,
         .gpio_path = DEVICE_PATH_STM32_GPIO_C,
         .irq_name = STM32_IRQ_GPIO_ODR_OUT,
         .gpio_bit = 13,
@@ -84,12 +84,12 @@ static void bluepill_board_class_init_callback(ObjectClass *oc, void *data)
 {
     MachineClass *mc = MACHINE_CLASS(oc);
 
-    mc->desc = "STM32F103C8T6 Bluepill";
+    mc->desc = "BluePill STM32F103C8T6";
     mc->init = bluepill_board_init_callback;
 }
 
 static const TypeInfo bluepill_machine = {
-    .name = BOARD_TYPE_NAME("BLUEPILL"),
+    .name = BOARD_TYPE_NAME("BluePill"),
     .parent = TYPE_CORTEXM_BOARD,
     .class_init = bluepill_board_class_init_callback
 /**/
