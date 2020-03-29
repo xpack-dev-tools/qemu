@@ -263,6 +263,11 @@ void qemu_set_tty_echo(int fd, bool echo)
 
 static char exec_dir[PATH_MAX];
 
+// #if defined(CONFIG_GNU_MCU_ECLIPSE)
+# if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+
 void qemu_init_exec_dir(const char *argv0)
 {
     char *dir;
@@ -290,6 +295,26 @@ void qemu_init_exec_dir(const char *argv0)
             *buf) {
             buf[sizeof(buf) - 1] = '\0';
             p = buf;
+        }
+    }
+#elif defined(__APPLE__)
+// #if defined(CONFIG_GNU_MCU_ECLIPSE)
+    {
+        char buf2[PATH_MAX];
+        uint32_t len2 = sizeof(buf2) - 1;
+
+        size_t len;
+
+        _NSGetExecutablePath(buf2, &len2);
+        if (len2 > 0) {
+            // May be a symbolic link.
+            len = readlink(buf2, buf, sizeof(buf) - 1);
+            if (len != -1) {
+                buf[len] = 0;
+                p = buf;
+            } else {
+                p = buf2;
+            }
         }
     }
 #endif
