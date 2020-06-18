@@ -531,14 +531,14 @@ void svd_process_cpu(JSON_Object *svd, CortexMCoreCapabilities *core)
         core->has_fpu = false;
     }
 
-    str = json_object_get_string(cpu, "qemuItmPresent");
+    str = json_object_get_string(cpu, "qemuEtmPresent");
     if (str != NULL) {
         core->has_etm = svd_parse_bool(str);
     } else {
         core->has_etm = false;
     }
 
-    str = json_object_get_string(cpu, "qemuEtmPresent");
+    str = json_object_get_string(cpu, "qemuItmPresent");
     if (str != NULL) {
         core->has_itm = svd_parse_bool(str);
     } else {
