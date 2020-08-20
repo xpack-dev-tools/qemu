@@ -130,7 +130,6 @@ set-vpath = $(if $1,$(foreach PATTERN,$(VPATH_SUFFIXES),$(eval vpath $(PATTERN) 
 define install-prog
 	$(INSTALL_DIR) "$2"
 	$(INSTALL_PROG) $1 "$2"
-	$(if $(STRIP),$(STRIP) $(foreach T,$1,"$2/$(notdir $T)"),)
 endef
 
 # find-in-path

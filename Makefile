@@ -474,7 +474,6 @@ ifneq ($(CONFIG_MODULES),)
 	for s in $(modules-m:.mo=$(DSOSUF)); do \
 		t="$(DESTDIR)$(qemu_moddir)/$$(echo $$s | tr / -)"; \
 		$(INSTALL_LIB) $$s "$$t"; \
-		test -z "$(STRIP)" || $(STRIP) "$$t"; \
 	done
 endif
 ifneq ($(HELPERS-y),)
