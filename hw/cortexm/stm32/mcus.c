@@ -1044,6 +1044,18 @@ static const STM32PartInfo stm32_mcus[] = {
     /**/
     },
     {
+        .name = TYPE_STM32F407VGTx, /* QFP variant */
+        .cortexm = {
+            .flash_size_kb = 1024,
+            .sram_size_kb = 128, /* 64K CCM not counted */
+
+            .svd_file_name = "STM32F40x-qemu.json",
+            .svd_device_name = "STM32F40x",
+        /**/},
+        .stm32 = &stm32f407xx,
+    /**/
+    },
+    {
         .name = TYPE_STM32F407ZG,
         .cortexm = {
             .flash_size_kb = 1024,
