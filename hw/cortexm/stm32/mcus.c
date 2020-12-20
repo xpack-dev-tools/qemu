@@ -1044,7 +1044,7 @@ static const STM32PartInfo stm32_mcus[] = {
     /**/
     },
     {
-        .name = TYPE_STM32F407VGTx, /* QFP variant */
+        .name = TYPE_STM32F407VGTX, /* QFP variant */
         .cortexm = {
             .flash_size_kb = 1024,
             .sram_size_kb = 128, /* 64K CCM not counted */
