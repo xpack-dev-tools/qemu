@@ -1089,6 +1089,17 @@ static const STM32PartInfo stm32_mcus[] = {
         .stm32 = &stm32f429xx,
     /**/
     },
+    {
+        .name = TYPE_STM32F429ZITX, /* QFP variant */
+        .cortexm = {
+            .flash_size_kb = 2048,
+            .sram_size_kb = 192, /* 64K CCM not counted */
+
+            .svd_file_name = "STM32F429x-qemu.json",
+            .svd_device_name = "STM32F429x", },
+        .stm32 = &stm32f429xx,
+    /**/
+    },
     { }
 /**/
 };

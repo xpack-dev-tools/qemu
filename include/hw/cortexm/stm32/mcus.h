@@ -49,6 +49,7 @@
 #define TYPE_STM32F407ZG "STM32F407ZG"
 #define TYPE_STM32F411RE "STM32F411RE"
 #define TYPE_STM32F429ZI "STM32F429ZI"
+#define TYPE_STM32F429ZITX "STM32F429ZITx"
 
 // ----------------------------------------------------------------------------
 
