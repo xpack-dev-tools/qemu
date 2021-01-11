@@ -136,6 +136,13 @@ static const TypeInfo stm32f0_discovery_machine = {
 /**/
 };
 
+static const TypeInfo stm32f051_discovery_machine = {
+    .name = BOARD_TYPE_NAME("STM32F051-Discovery"),
+    .parent = TYPE_CORTEXM_BOARD,
+    .class_init = stm32f0_discovery_board_class_init_callback,
+/**/
+};
+
 // ----- ST STM32F4-Discovery -------------------------------------------------
 
 // http://www.st.com/content/st_com/en/products/evaluation-tools/product-evaluation-tools/mcu-eval-tools/stm32-mcu-eval-tools/stm32-mcu-discovery-kits/stm32f4discovery.html
@@ -423,6 +430,7 @@ static void stm32vl_discovery_init_callback(MachineState *machine)
 static void stm32_machines_init(void)
 {
     type_register_static(&stm32f0_discovery_machine);
+    type_register_static(&stm32f051_discovery_machine);
     type_register_static(&stm32f4_discovery_machine);
     type_register_static(&stm32f429i_discovery_machine);
 #if 0
