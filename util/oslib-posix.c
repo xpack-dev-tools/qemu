@@ -49,6 +49,12 @@
 #include <libutil.h>
 #endif
 
+#if defined(CONFIG_GNU_MCU_ECLIPSE)
+#ifdef __APPLE__
+#include <libproc.h>
+#endif
+#endif // CONFIG_GNU_MCU_ECLIPSE
+
 #include "qemu/mmap-alloc.h"
 
 #ifdef CONFIG_DEBUG_STACK_USAGE
@@ -298,25 +304,22 @@ void qemu_init_exec_dir(const char *argv0)
         }
     }
 #elif defined(__APPLE__)
-// #if defined(CONFIG_GNU_MCU_ECLIPSE)
+#if defined(CONFIG_GNU_MCU_ECLIPSE)
     {
-        char buf2[PATH_MAX];
-        uint32_t len2 = sizeof(buf2) - 1;
-
-        size_t len;
-
-        _NSGetExecutablePath(buf2, &len2);
-        if (len2 > 0) {
-            // May be a symbolic link.
-            len = readlink(buf2, buf, sizeof(buf) - 1);
-            if (len != -1) {
-                buf[len] = 0;
-                p = buf;
-            } else {
-                p = buf2;
-            }
-        }
+      int ret;
+      char buf2[PROC_PIDPATHINFO_SIZE+1];
+      // The size must be at least PROC_PIDPATHINFO_SIZE, otherwise the call
+      // fails with ENOMEM (12).
+      // https://opensource.apple.com/source/Libc/Libc-498/darwin/libproc.c
+      ret = proc_pidpath(getpid(), buf2, sizeof(buf2) - 1);
+      if ( ret > 0 ) {
+        // printf("proc_pidpath %s %d\n", buf2, ret);
+        p = buf2;
+      } else {
+        // printf("    %s\n", strerror(errno));
+      }
     }
+#endif // CONFIG_GNU_MCU_ECLIPSE
 #endif
     /* If we don't have any way of figuring out the actual executable
        location then try argv[0].  */
