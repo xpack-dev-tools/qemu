@@ -10375,7 +10375,11 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
                         }
                         break;
                     case 3: /* Special control operations.  */
+#if defined(CONFIG_GNU_MCU_ECLIPSE)
+                        ARCH(6);
+#else
                         ARCH(7);
+#endif /* defined(CONFIG_GNU_MCU_ECLIPSE) */
                         op = (insn >> 4) & 0xf;
                         switch (op) {
                         case 2: /* clrex */
