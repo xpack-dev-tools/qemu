@@ -1004,6 +1004,7 @@ static void cortex_m0_initfn(Object *obj)
 {
     ARMCPU *cpu = ARM_CPU(obj);
     set_feature(&cpu->env, ARM_FEATURE_V6);
+    set_feature(&cpu->env, ARM_FEATURE_THUMB2);
     /* TODO: check if V6 works with M */
     set_feature(&cpu->env, ARM_FEATURE_M);
     cpu->midr = 0x410CC200; /* M0, r0p0 */
@@ -1013,6 +1014,7 @@ static void cortex_m0p_initfn(Object *obj)
 {
     ARMCPU *cpu = ARM_CPU(obj);
     set_feature(&cpu->env, ARM_FEATURE_V6);
+    set_feature(&cpu->env, ARM_FEATURE_THUMB2);
     /* TODO: check if V6 works with M */
     set_feature(&cpu->env, ARM_FEATURE_M);
     cpu->midr = 0x410CC601; /* M0+, r0p1 */
@@ -1022,6 +1024,7 @@ static void cortex_m1_initfn(Object *obj)
 {
     ARMCPU *cpu = ARM_CPU(obj);
     set_feature(&cpu->env, ARM_FEATURE_V6);
+    set_feature(&cpu->env, ARM_FEATURE_THUMB2);
     /* TODO: check if V6 works with M */
     set_feature(&cpu->env, ARM_FEATURE_M);
     cpu->midr = 0x411CC210; /* M1, r1p0 */
