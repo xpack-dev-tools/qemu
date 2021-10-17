@@ -264,7 +264,7 @@ static int glue(load_elf, SZ)(const char *name, int fd,
                               int must_swab, uint64_t *pentry,
                               uint64_t *lowaddr, uint64_t *highaddr,
                               int elf_machine, int clear_lsb, int data_swab,
-                              AddressSpace *as)
+                              AddressSpace *as /*, bool load_rom */)
 {
     struct elfhdr ehdr;
     struct elf_phdr *phdr = NULL, *ph;
@@ -459,7 +459,7 @@ static int glue(load_elf, SZ)(const char *name, int fd,
                  */
                 g_free(data);
             } else {
-                if (load_rom) {
+                if (true) { /* (load_rom) { */
                     snprintf(label, sizeof(label), "phdr #%d: %s", i, name);
 
                     /* rom_add_elf_program() seize the ownership of 'data' */
