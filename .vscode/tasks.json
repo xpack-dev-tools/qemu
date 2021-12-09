@@ -14,7 +14,7 @@
       "type": "shell",
       "command": "bash",
       "args": [
-        "${HOME}/Downloads/qemu-arm-xpack.git/scripts/build-native.sh",
+        "${HOME}/Downloads/qemu-arm-xpack.git/scripts/helper/build-native.sh",
         "--debug",
         "--develop"
       ],
@@ -29,7 +29,7 @@
       "type": "shell",
       "command": "bash",
       "args": [
-        "${HOME}/Downloads/qemu-arm-xpack.git/scripts/build-native.sh",
+        "${HOME}/Downloads/qemu-arm-xpack.git/scripts/helper/build-native.sh",
         "clean"
       ],
       "group": "build",

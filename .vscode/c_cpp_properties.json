@@ -1,18 +1,56 @@
 {
   "configurations": [
     {
-      "name": "Mac",
+      "name": "Mac x64",
       "includePath": [
         "${workspaceFolder}",
         "${workspaceFolder}/include",
         "${workspaceFolder}/tcg/arm",
-        "${env:HOME}/Work/qemu-dev/darwin-x64/build/qemu",
-        "${env:HOME}/Work/qemu-dev/darwin-x64/build/qemu/gnuarmeclipse-softmmu",
-        "${env:HOME}/Work/qemu-dev/darwin-x64/install/libs/include/glib-2.0",
-        "${env:HOME}/Work/qemu-dev/darwin-x64/install/libs/lib/glib-2.0/include",
-        "${env:HOME}/Work/qemu-dev/darwin-x64/install/libs/include",
-        "${env:HOME}/Work/qemu-dev/darwin-x64/install/libs/include/SDL2",
-        "${env:HOME}/Work/qemu-dev/darwin-x64/install/libs/include/pixman-1"
+        "${env:HOME}/Work/qemu-arm-dev/darwin-x64/build/qemu-arm",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-x64/build/qemu-arm/gnuarmeclipse-softmmu",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/libs/include/glib-2.0",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/libs/lib/glib-2.0/include",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/libs/include",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/libs/include/SDL2",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/libs/include/pixman-1"
+      ],
+      "defines": [],
+      "compilerPath": "/usr/bin/clang",
+      "cStandard": "c11",
+      "intelliSenseMode": "clang-x64"
+    },
+    {
+      "name": "Mac arm64",
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/tcg/arm",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/build/qemu-arm",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/build/qemu-arm/gnuarmeclipse-softmmu",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/install/libs/include/glib-2.0",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/install/libs/lib/glib-2.0/include",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/install/libs/include",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/install/libs/include/SDL2",
+        "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/install/libs/include/pixman-1"
+      ],
+      "defines": [],
+      "compilerPath": "/usr/bin/clang",
+      "cStandard": "c11",
+      "intelliSenseMode": "clang-x64"
+    },
+    {
+      "name": "Linux x64",
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/tcg/arm",
+        "${env:HOME}/Work/qemu-arm-dev/linux-x64/build/qemu-arm",
+        "${env:HOME}/Work/qemu-arm-dev/linux-x64/build/qemu-arm/gnuarmeclipse-softmmu",
+        "${env:HOME}/Work/qemu-arm-dev/linux-x64/install/libs/include/glib-2.0",
+        "${env:HOME}/Work/qemu-arm-dev/linux-x64/install/libs/lib/glib-2.0/include",
+        "${env:HOME}/Work/qemu-arm-dev/linux-x64/install/libs/include",
+        "${env:HOME}/Work/qemu-arm-dev/linux-x64/install/libs/include/SDL2",
+        "${env:HOME}/Work/qemu-arm-dev/linux-x64/install/libs/include/pixman-1"
       ],
       "defines": [],
       "compilerPath": "/usr/bin/gcc",
@@ -20,37 +58,18 @@
       "intelliSenseMode": "clang-x64"
     },
     {
-      "name": "Linux",
+      "name": "Win32 x64",
       "includePath": [
         "${workspaceFolder}",
         "${workspaceFolder}/include",
         "${workspaceFolder}/tcg/arm",
-        "${env:HOME}/Work/qemu-dev/linux-x64/build/qemu",
-        "${env:HOME}/Work/qemu-dev/linux-x64/build/qemu/gnuarmeclipse-softmmu",
-        "${env:HOME}/Work/qemu-dev/linux-x64/install/libs/include/glib-2.0",
-        "${env:HOME}/Work/qemu-dev/linux-x64/install/libs/lib/glib-2.0/include",
-        "${env:HOME}/Work/qemu-dev/linux-x64/install/libs/include",
-        "${env:HOME}/Work/qemu-dev/linux-x64/install/libs/include/SDL2",
-        "${env:HOME}/Work/qemu-dev/linux-x64/install/libs/include/pixman-1"
-      ],
-      "defines": [],
-      "compilerPath": "/usr/bin/gcc",
-      "cStandard": "c11",
-      "intelliSenseMode": "clang-x64"
-    },
-    {
-      "name": "Win32",
-      "includePath": [
-        "${workspaceFolder}",
-        "${workspaceFolder}/include",
-        "${workspaceFolder}/tcg/arm",
-        "${env:USERPROFILE}/Work/qemu-dev/win32-x64/build/qemu",
-        "${env:USERPROFILE}/Work/qemu-dev/win32-x64/build/qemu/gnuarmeclipse-softmmu",
-        "${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/libs/include/glib-2.0",
-        "${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/libs/lib/glib-2.0/include",
-        "${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/libs/include",
-        "${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/libs/include/SDL2",
-        "${env:USERPROFILE}/Work/qemu-dev/win32-x64/install/libs/include/pixman-1"
+        "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/build/qemu-arm",
+        "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/build/qemu-arm/gnuarmeclipse-softmmu",
+        "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/install/libs/include/glib-2.0",
+        "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/install/libs/lib/glib-2.0/include",
+        "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/install/libs/include",
+        "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/install/libs/include/SDL2",
+        "${env:USERPROFILE}/Work/qemu-arm-dev/win32-x64/install/libs/include/pixman-1"
       ],
       "defines": [],
       "cStandard": "c11",
