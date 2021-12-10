@@ -6,7 +6,7 @@
   "configurations": [
     // macOS LLDB configurations
     {
-      "name": "(lldb) Launch qemu --help",
+      "name": "(lldb x64) Launch qemu --help",
       "type": "cppdbg",
       "request": "launch",
       "program": "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
@@ -20,7 +20,7 @@
       "MIMode": "lldb"
     },
     {
-      "name": "(lldb) Launch qemu f4b-sh --nographic",
+      "name": "(lldb x64) Launch qemu f4b-sh --nographic",
       "type": "cppdbg",
       "request": "launch",
       "program": "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
@@ -49,7 +49,7 @@
       "MIMode": "lldb"
     },
     {
-      "name": "(lldb) Launch qemu f4b-sh (graphic)",
+      "name": "(lldb x64) Launch qemu f4b-sh (graphic)",
       "type": "cppdbg",
       "request": "launch",
       "program": "${env:HOME}/Work/qemu-arm-dev/darwin-x64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
@@ -75,6 +75,71 @@
       "environment": [],
       "externalConsole": true,
       "MIMode": "lldb"
+    },
+    {
+      "name": "(codelldb arm64) Launch qemu --help",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
+      "args": [
+        "--help"
+      ],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}",
+      "terminal": "external"
+    },
+    {
+      "name": "(codelldb arm64) Launch qemu f4b-sh --nographic",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
+      "args": [
+        "--verbose",
+        "--verbose",
+        "--board",
+        "STM32F4-Discovery",
+        "--mcu",
+        "STM32F407VG",
+        "-d",
+        "unimp,guest_errors",
+        "--nographic",
+        "--image",
+        "${env:HOME}/Work/qemu-eclipse-test-projects.git/f407-disc-blink-tutorial/Debug/f407-disc-blink-tutorial.elf",
+        "--semihosting-config",
+        "enable=on,target=native",
+        "--semihosting-cmdline",
+        "f4b",
+        "20"
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "terminal": "external"
+    },
+    {
+      "name": "(codelldb arm64) Launch qemu f4b-sh (graphic)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${env:HOME}/Work/qemu-arm-dev/darwin-arm64/install/qemu-arm/bin/qemu-system-gnuarmeclipse",
+      "args": [
+        "--verbose",
+        "--verbose",
+        "--board",
+        "STM32F4-Discovery",
+        "--mcu",
+        "STM32F407VG",
+        "-d",
+        "unimp,guest_errors",
+        "--image",
+        "${env:HOME}/Work/qemu-eclipse-test-projects.git/f407-disc-blink-tutorial/Debug/f407-disc-blink-tutorial.elf",
+        "--semihosting-config",
+        "enable=on,target=native",
+        "--semihosting-cmdline",
+        "f4b",
+        "20"
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "terminal": "external"
     },
     // Linux GDB configurations
     {
