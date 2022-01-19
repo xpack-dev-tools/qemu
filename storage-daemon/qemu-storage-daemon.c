@@ -212,6 +212,9 @@ static void process_options(int argc, char *argv[])
             trace_init_file();
             break;
         case 'V':
+#if defined(QEMU_BRANDING_PREFIX)
+            printf("%s ", QEMU_BRANDING_PREFIX);
+#endif
             printf("qemu-storage-daemon version "
                    QEMU_FULL_VERSION "\n" QEMU_COPYRIGHT "\n");
             exit(EXIT_SUCCESS);

@@ -597,6 +597,9 @@ int main(int argc, char **argv)
             trace_opt_parse(optarg);
             break;
         case 'V':
+#if defined(QEMU_BRANDING_PREFIX)
+            printf("%s ", QEMU_BRANDING_PREFIX);
+#endif
             printf("%s version " QEMU_FULL_VERSION "\n"
                    QEMU_COPYRIGHT "\n", error_get_progname());
             exit(0);

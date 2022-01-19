@@ -382,6 +382,9 @@ static void handle_arg_strace(const char *arg)
 
 static void handle_arg_version(const char *arg)
 {
+#if defined(QEMU_BRANDING_PREFIX)
+    printf("%s ", QEMU_BRANDING_PREFIX);
+#endif
     printf("qemu-" TARGET_NAME " version " QEMU_FULL_VERSION
            "\n" QEMU_COPYRIGHT "\n");
     exit(EXIT_SUCCESS);

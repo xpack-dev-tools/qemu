@@ -108,6 +108,9 @@ QEMU_HELP_BOTTOM "\n"
 
 static void version(const char *name)
 {
+#if defined(QEMU_BRANDING_PREFIX)
+    printf("%s ", QEMU_BRANDING_PREFIX);
+#endif
     printf(
 "%s " QEMU_FULL_VERSION "\n"
 "Written by Paolo Bonzini.\n"

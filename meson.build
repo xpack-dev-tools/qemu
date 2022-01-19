@@ -1455,6 +1455,10 @@ config_host_data.set_quoted('CONFIG_QEMU_LOCALSTATEDIR', get_option('prefix') / 
 config_host_data.set_quoted('CONFIG_QEMU_MODDIR', get_option('prefix') / qemu_moddir)
 config_host_data.set_quoted('CONFIG_SYSCONFDIR', get_option('prefix') / get_option('sysconfdir'))
 
+if get_option('branding_prefix') != ''
+  config_host_data.set_quoted('QEMU_BRANDING_PREFIX', get_option('branding_prefix'))
+endif
+
 config_host_data.set('HOST_' + host_arch.to_upper(), 1)
 
 config_host_data.set('CONFIG_ATTR', libattr.found())
@@ -3320,6 +3324,7 @@ endif
 summary_info += {'strip binaries':    get_option('strip')}
 summary_info += {'sparse':            sparse}
 summary_info += {'mingw32 support':   targetos == 'windows'}
+summary_info += {'branding prefix':   get_option('branding_prefix')}
 
 # snarf the cross-compilation information for tests
 foreach target: target_dirs

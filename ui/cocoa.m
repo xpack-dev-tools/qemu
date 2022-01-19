@@ -1524,8 +1524,13 @@ QemuCocoaView *cocoaView;
 
     /* Create the version string*/
     NSString *version_string;
+#if defined(QEMU_BRANDING_PREFIX)
+    version_string = [[NSString alloc] initWithFormat:
+    @"%s QEMU emulator version %s", QEMU_BRANDING_PREFIX, QEMU_FULL_VERSION];
+#else
     version_string = [[NSString alloc] initWithFormat:
     @"QEMU emulator version %s", QEMU_FULL_VERSION];
+#endif
     [version_label setStringValue: version_string];
     [superView addSubview: version_label];
 

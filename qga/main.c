@@ -224,8 +224,11 @@ void reopen_fd_to_null(int fd)
 
 static void usage(const char *cmd)
 {
+    printf("Usage: %s [-m <method> -p <path>] [<options>]\n");
+#if defined(QEMU_BRANDING_PREFIX)
+    printf("%s ", QEMU_BRANDING_PREFIX);
+#endif
     printf(
-"Usage: %s [-m <method> -p <path>] [<options>]\n"
 "QEMU Guest Agent " QEMU_FULL_VERSION "\n"
 QEMU_COPYRIGHT "\n"
 "\n"

@@ -826,6 +826,9 @@ static MachineClass *find_default_machine(GSList *machines)
 
 static void version(void)
 {
+#if defined(QEMU_BRANDING_PREFIX)
+    printf("%s ", QEMU_BRANDING_PREFIX);
+#endif
     printf("QEMU emulator version " QEMU_FULL_VERSION "\n"
            QEMU_COPYRIGHT "\n");
 }

@@ -3896,6 +3896,9 @@ static void fuse_lo_data_cleanup(struct lo_data *lo)
 
 static void qemu_version(void)
 {
+#if defined(QEMU_BRANDING_PREFIX)
+    printf("%s ", QEMU_BRANDING_PREFIX);
+#endif
     printf("virtiofsd version " QEMU_FULL_VERSION "\n" QEMU_COPYRIGHT "\n");
 }
 

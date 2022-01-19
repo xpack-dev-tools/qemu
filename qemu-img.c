@@ -52,8 +52,14 @@
 #include "qemu/throttle.h"
 #include "block/throttle-groups.h"
 
+#if defined(QEMU_BRANDING_PREFIX)
+#define QEMU_IMG_VERSION QEMU_BRANDING_PREFIX " qemu-img version " \
+                         QEMU_FULL_VERSION \
+                         "\n" QEMU_COPYRIGHT "\n"
+#else
 #define QEMU_IMG_VERSION "qemu-img version " QEMU_FULL_VERSION \
-                          "\n" QEMU_COPYRIGHT "\n"
+                         "\n" QEMU_COPYRIGHT "\n"
+#endif
 
 typedef struct img_cmd_t {
     const char *name;
@@ -235,7 +241,7 @@ static void QEMU_NORETURN help(void)
  * an odd number of ',' (or else a separating ',' following it gets
  * escaped), or be empty (or else a separating ',' preceding it can
  * escape a separating ',' following it).
- * 
+ *
  */
 static bool is_valid_option_list(const char *optarg)
 {
