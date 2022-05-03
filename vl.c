@@ -2212,11 +2212,10 @@ static void version(void)
 #if defined(CONFIG_BRANDING_MESSAGE)
            CONFIG_BRANDING_MESSAGE " "
 #endif
-           QEMU_WORDSIZE
            "QEMU emulator version "
-           QEMU_VERSION QEMU_PKGVERSION "\n"
-           QEMU_COPYRIGHT "\n");   
-    
+           QEMU_VERSION " " QEMU_PKGVERSION "\n"
+           QEMU_COPYRIGHT "\n");
+
 #else /* !defined(CONFIG_GNU_MCU_ECLIPSE) */
 
 	printf("QEMU emulator version " QEMU_VERSION QEMU_PKGVERSION "\n"
