@@ -105,9 +105,13 @@ static NSTextField *pauseLabel;
 
 static bool allow_events;
 
+// xPack
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
 static NSInteger cbchangecount = -1;
 static QemuClipboardInfo *cbinfo;
 static QemuEvent cbevent;
+#endif
+// xPack
 
 // Utility functions to run specified code block with iothread lock held
 typedef void (^CodeBlock)(void);
@@ -1799,6 +1803,8 @@ static void addRemovableDevicesMenuItems(void)
     qapi_free_BlockInfoList(pointerToFree);
 }
 
+// xPack
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
 @interface QemuCocoaPasteboardTypeOwner : NSObject<NSPasteboardTypeOwner>
 @end
 
@@ -1899,6 +1905,8 @@ static void cocoa_clipboard_request(QemuClipboardInfo *info,
         break;
     }
 }
+#endif
+// xPack
 
 /*
  * The startup process for the OSX/Cocoa UI is complicated, because
@@ -1922,7 +1930,13 @@ static void *call_qemu_main(void *opaque)
     status = qemu_default_main();
     qemu_mutex_unlock_iothread();
     COCOA_DEBUG("Second thread: qemu_default_main() returned, exiting\n");
+
+// xPack
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
     [cbowner release];
+#endif
+// xPack
+
     exit(status);
 }
 
@@ -2004,6 +2018,8 @@ static void cocoa_refresh(DisplayChangeListener *dcl)
         });
     }
 
+// xPack
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
     if (cbchangecount != [[NSPasteboard generalPasteboard] changeCount]) {
         qemu_clipboard_info_unref(cbinfo);
         cbinfo = qemu_clipboard_info_new(&cbpeer, QEMU_CLIPBOARD_SELECTION_CLIPBOARD);
@@ -2014,6 +2030,8 @@ static void cocoa_refresh(DisplayChangeListener *dcl)
         cbchangecount = [[NSPasteboard generalPasteboard] changeCount];
         qemu_event_set(&cbevent);
     }
+#endif
+// xPack
 
     [pool release];
 }
@@ -2072,9 +2090,13 @@ static void cocoa_display_init(DisplayState *ds, DisplayOptions *opts)
     // register vga output callbacks
     register_displaychangelistener(&dcl);
 
+// xPack
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
     qemu_event_init(&cbevent, false);
     cbowner = [[QemuCocoaPasteboardTypeOwner alloc] init];
     qemu_clipboard_peer_register(&cbpeer);
+#endif
+// xPack
 
     [pool release];
 }
