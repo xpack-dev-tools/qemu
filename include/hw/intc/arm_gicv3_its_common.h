@@ -42,21 +42,15 @@
 #define GITS_TRANSLATER  0x0040
 
 typedef struct {
-    bool valid;
     bool indirect;
     uint16_t entry_sz;
     uint32_t page_sz;
-    uint32_t max_entries;
-    union {
-        uint32_t max_devids;
-        uint32_t max_collids;
-    } maxids;
+    uint32_t num_entries;
     uint64_t base_addr;
 } TableDesc;
 
 typedef struct {
-    bool valid;
-    uint32_t max_entries;
+    uint32_t num_entries;
     uint64_t base_addr;
 } CmdQDesc;
 

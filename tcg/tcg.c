@@ -36,6 +36,7 @@
 #include "qemu/qemu-print.h"
 #include "qemu/timer.h"
 #include "qemu/cacheflush.h"
+#include "qemu/cacheinfo.h"
 
 /* Note: the long term plan is to reduce the dependencies on the QEMU
    CPU definitions. Currently they are used for qemu_ld/st
@@ -1406,6 +1407,12 @@ bool tcg_op_supported(TCGOpcode op)
         return have_vec && TCG_TARGET_HAS_andc_vec;
     case INDEX_op_orc_vec:
         return have_vec && TCG_TARGET_HAS_orc_vec;
+    case INDEX_op_nand_vec:
+        return have_vec && TCG_TARGET_HAS_nand_vec;
+    case INDEX_op_nor_vec:
+        return have_vec && TCG_TARGET_HAS_nor_vec;
+    case INDEX_op_eqv_vec:
+        return have_vec && TCG_TARGET_HAS_eqv_vec;
     case INDEX_op_mul_vec:
         return have_vec && TCG_TARGET_HAS_mul_vec;
     case INDEX_op_shli_vec:
@@ -1751,12 +1758,12 @@ static const char * const ldst_name[] =
     [MO_LESW] = "lesw",
     [MO_LEUL] = "leul",
     [MO_LESL] = "lesl",
-    [MO_LEQ]  = "leq",
+    [MO_LEUQ] = "leq",
     [MO_BEUW] = "beuw",
     [MO_BESW] = "besw",
     [MO_BEUL] = "beul",
     [MO_BESL] = "besl",
-    [MO_BEQ]  = "beq",
+    [MO_BEUQ] = "beq",
 };
 
 static const char * const alignment_name[(MO_AMASK >> MO_ASHIFT) + 1] = {

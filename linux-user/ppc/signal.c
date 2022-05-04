@@ -229,7 +229,7 @@ static void save_user_regs(CPUPPCState *env, struct target_mcontext *frame)
 {
     target_ulong msr = env->msr;
     int i;
-    target_ulong ccr = 0;
+    uint32_t ccr = 0;
 
     /* In general, the kernel attempts to be intelligent about what it
        needs to save for Altivec/FP/SPE registers.  We don't care that
@@ -477,9 +477,7 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
     int i, err = 0;
 #if defined(TARGET_PPC64)
     struct target_sigcontext *sc = 0;
-#if !defined(TARGET_ABI32)
     struct image_info *image = ((TaskState *)thread_cpu->opaque)->info;
-#endif
 #endif
 
     rt_sf_addr = get_sigframe(ka, env, sizeof(*rt_sf));
@@ -530,7 +528,7 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
     env->gpr[5] = (target_ulong) h2g(&rt_sf->uc);
     env->gpr[6] = (target_ulong) h2g(rt_sf);
 
-#if defined(TARGET_PPC64) && !defined(TARGET_ABI32)
+#if defined(TARGET_PPC64)
     if (get_ppc64_abi(image) < 2) {
         /* ELFv1 PPC64 function pointers are pointers to OPD entries. */
         struct target_func_ptr *handler =
@@ -562,7 +560,7 @@ sigsegv:
 
 }
 
-#if !defined(TARGET_PPC64) || defined(TARGET_ABI32)
+#if !defined(TARGET_PPC64)
 long do_sigreturn(CPUPPCState *env)
 {
     struct target_sigcontext *sc = NULL;
@@ -575,12 +573,9 @@ long do_sigreturn(CPUPPCState *env)
     if (!lock_user_struct(VERIFY_READ, sc, sc_addr, 1))
         goto sigsegv;
 
-#if defined(TARGET_PPC64)
-    set.sig[0] = sc->oldmask + ((uint64_t)(sc->_unused[3]) << 32);
-#else
     __get_user(set.sig[0], &sc->oldmask);
     __get_user(set.sig[1], &sc->_unused[3]);
-#endif
+
     target_to_host_sigset_internal(&blocked, &set);
     set_sigmask(&blocked);
 
@@ -591,13 +586,13 @@ long do_sigreturn(CPUPPCState *env)
 
     unlock_user_struct(sr, sr_addr, 1);
     unlock_user_struct(sc, sc_addr, 1);
-    return -TARGET_QEMU_ESIGRETURN;
+    return -QEMU_ESIGRETURN;
 
 sigsegv:
     unlock_user_struct(sr, sr_addr, 1);
     unlock_user_struct(sc, sc_addr, 1);
     force_sig(TARGET_SIGSEGV);
-    return -TARGET_QEMU_ESIGRETURN;
+    return -QEMU_ESIGRETURN;
 }
 #endif /* !defined(TARGET_PPC64) */
 
@@ -646,12 +641,12 @@ long do_rt_sigreturn(CPUPPCState *env)
     target_restore_altstack(&rt_sf->uc.tuc_stack, env);
 
     unlock_user_struct(rt_sf, rt_sf_addr, 1);
-    return -TARGET_QEMU_ESIGRETURN;
+    return -QEMU_ESIGRETURN;
 
 sigsegv:
     unlock_user_struct(rt_sf, rt_sf_addr, 1);
     force_sig(TARGET_SIGSEGV);
-    return -TARGET_QEMU_ESIGRETURN;
+    return -QEMU_ESIGRETURN;
 }
 
 /* This syscall implements {get,set,swap}context for userland.  */
@@ -704,7 +699,7 @@ abi_long do_swapcontext(CPUArchState *env, abi_ulong uold_ctx,
             /* We cannot return to a partially updated context.  */
             force_sig(TARGET_SIGSEGV);
         }
-        return -TARGET_QEMU_ESIGRETURN;
+        return -QEMU_ESIGRETURN;
     }
 
     return 0;

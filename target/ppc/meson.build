@@ -16,6 +16,7 @@ ppc_ss.add(when: 'CONFIG_TCG', if_true: files(
   'misc_helper.c',
   'timebase_helper.c',
   'translate.c',
+  'power8-pmu.c',
 ))
 
 ppc_ss.add(libdecnumber)

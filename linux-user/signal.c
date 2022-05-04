@@ -31,7 +31,7 @@
 #include "trace.h"
 #include "signal-common.h"
 #include "host-signal.h"
-#include "safe-syscall.h"
+#include "user/safe-syscall.h"
 
 static struct target_sigaction sigact_table[TARGET_NSIG];
 
@@ -213,7 +213,7 @@ int block_signals(void)
 
 /* Wrapper for sigprocmask function
  * Emulates a sigprocmask in a safe way for the guest. Note that set and oldset
- * are host signal set, not guest ones. Returns -TARGET_ERESTARTSYS if
+ * are host signal set, not guest ones. Returns -QEMU_ERESTARTSYS if
  * a signal was already pending and the syscall must be restarted, or
  * 0 on success.
  * If set is NULL, this is guaranteed not to fail.
@@ -230,7 +230,7 @@ int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
         int i;
 
         if (block_signals()) {
-            return -TARGET_ERESTARTSYS;
+            return -QEMU_ERESTARTSYS;
         }
 
         switch (how) {
@@ -258,7 +258,6 @@ int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
     return 0;
 }
 
-#if !defined(TARGET_NIOS2)
 /* Just set the guest's signal mask to the specified value; the
  * caller is assumed to have called block_signals() already.
  */
@@ -268,7 +267,6 @@ void set_sigmask(const sigset_t *set)
 
     ts->signal_mask = *set;
 }
-#endif
 
 /* sigaltstack management */
 
@@ -406,7 +404,12 @@ static inline void host_to_target_siginfo_noswap(target_siginfo_t *tinfo,
         case TARGET_SIGCHLD:
             tinfo->_sifields._sigchld._pid = info->si_pid;
             tinfo->_sifields._sigchld._uid = info->si_uid;
-            tinfo->_sifields._sigchld._status = info->si_status;
+            if (si_code == CLD_EXITED)
+                tinfo->_sifields._sigchld._status = info->si_status;
+            else
+                tinfo->_sifields._sigchld._status
+                    = host_to_target_signal(info->si_status & 0x7f)
+                        | (info->si_status & ~0x7f);
             tinfo->_sifields._sigchld._utime = info->si_utime;
             tinfo->_sifields._sigchld._stime = info->si_stime;
             si_type = QEMU_SI_CHLD;
@@ -731,7 +734,7 @@ static void QEMU_NORETURN dump_core_and_abort(int target_sig)
     struct sigaction act;
 
     host_sig = target_to_host_signal(target_sig);
-    trace_user_force_sig(env, target_sig, host_sig);
+    trace_user_dump_core_and_abort(env, target_sig, host_sig);
     gdb_signalled(env, target_sig);
 
     /* dump core if supported by target binary format */
@@ -777,8 +780,8 @@ static void QEMU_NORETURN dump_core_and_abort(int target_sig)
 
 /* queue a signal so that it will be send to the virtual CPU as soon
    as possible */
-int queue_signal(CPUArchState *env, int sig, int si_type,
-                 target_siginfo_t *info)
+void queue_signal(CPUArchState *env, int sig, int si_type,
+                  target_siginfo_t *info)
 {
     CPUState *cpu = env_cpu(env);
     TaskState *ts = cpu->opaque;
@@ -791,22 +794,19 @@ int queue_signal(CPUArchState *env, int sig, int si_type,
     ts->sync_signal.pending = sig;
     /* signal that a new signal is pending */
     qatomic_set(&ts->signal_pending, 1);
-    return 1; /* indicates that the signal was queued */
 }
 
 
 /* Adjust the signal context to rewind out of safe-syscall if we're in it */
 static inline void rewind_if_in_safe_syscall(void *puc)
 {
-#ifdef HAVE_SAFE_SYSCALL
-    ucontext_t *uc = (ucontext_t *)puc;
+    host_sigcontext *uc = (host_sigcontext *)puc;
     uintptr_t pcreg = host_signal_pc(uc);
 
     if (pcreg > (uintptr_t)safe_syscall_start
         && pcreg < (uintptr_t)safe_syscall_end) {
         host_signal_set_pc(uc, (uintptr_t)safe_syscall_start);
     }
-#endif
 }
 
 static void host_signal_handler(int host_sig, siginfo_t *info, void *puc)
@@ -815,11 +815,12 @@ static void host_signal_handler(int host_sig, siginfo_t *info, void *puc)
     CPUState *cpu = env_cpu(env);
     TaskState *ts = cpu->opaque;
     target_siginfo_t tinfo;
-    ucontext_t *uc = puc;
+    host_sigcontext *uc = puc;
     struct emulated_sigtable *k;
     int guest_sig;
     uintptr_t pc = 0;
     bool sync_sig = false;
+    void *sigmask = host_signal_mask(uc);
 
     /*
      * Non-spoofed SIGSEGV and SIGBUS are synchronous, and need special
@@ -849,8 +850,7 @@ static void host_signal_handler(int host_sig, siginfo_t *info, void *puc)
             if (info->si_code == SEGV_ACCERR && h2g_valid(host_addr)) {
                 /* If this was a write to a TB protected page, restart. */
                 if (is_write &&
-                    handle_sigsegv_accerr_write(cpu, &uc->uc_sigmask,
-                                                pc, guest_addr)) {
+                    handle_sigsegv_accerr_write(cpu, sigmask, pc, guest_addr)) {
                     return;
                 }
 
@@ -865,10 +865,10 @@ static void host_signal_handler(int host_sig, siginfo_t *info, void *puc)
                 }
             }
 
-            sigprocmask(SIG_SETMASK, &uc->uc_sigmask, NULL);
+            sigprocmask(SIG_SETMASK, sigmask, NULL);
             cpu_loop_exit_sigsegv(cpu, guest_addr, access_type, maperr, pc);
         } else {
-            sigprocmask(SIG_SETMASK, &uc->uc_sigmask, NULL);
+            sigprocmask(SIG_SETMASK, sigmask, NULL);
             if (info->si_code == BUS_ADRALN) {
                 cpu_loop_exit_sigbus(cpu, guest_addr, access_type, pc);
             }
@@ -909,17 +909,15 @@ static void host_signal_handler(int host_sig, siginfo_t *info, void *puc)
      * now and it getting out to the main loop. Signals will be
      * unblocked again in process_pending_signals().
      *
-     * WARNING: we cannot use sigfillset() here because the uc_sigmask
+     * WARNING: we cannot use sigfillset() here because the sigmask
      * field is a kernel sigset_t, which is much smaller than the
      * libc sigset_t which sigfillset() operates on. Using sigfillset()
      * would write 0xff bytes off the end of the structure and trash
      * data on the struct.
-     * We can't use sizeof(uc->uc_sigmask) either, because the libc
-     * headers define the struct field with the wrong (too large) type.
      */
-    memset(&uc->uc_sigmask, 0xff, SIGSET_T_SIZE);
-    sigdelset(&uc->uc_sigmask, SIGSEGV);
-    sigdelset(&uc->uc_sigmask, SIGBUS);
+    memset(sigmask, 0xff, SIGSET_T_SIZE);
+    sigdelset(sigmask, SIGSEGV);
+    sigdelset(sigmask, SIGBUS);
 
     /* interrupt the virtual CPU as soon as possible */
     cpu_exit(thread_cpu);
@@ -987,7 +985,7 @@ int do_sigaction(int sig, const struct target_sigaction *act,
     }
 
     if (block_signals()) {
-        return -TARGET_ERESTARTSYS;
+        return -QEMU_ERESTARTSYS;
     }
 
     k = &sigact_table[sig - 1];
@@ -1001,7 +999,6 @@ int do_sigaction(int sig, const struct target_sigaction *act,
         oact->sa_mask = k->sa_mask;
     }
     if (act) {
-        /* FIXME: This is not threadsafe.  */
         __get_user(k->_sa_handler, &act->_sa_handler);
         __get_user(k->sa_flags, &act->sa_flags);
 #ifdef TARGET_ARCH_HAS_SA_RESTORER
@@ -1151,7 +1148,6 @@ void process_pending_signals(CPUArchState *cpu_env)
     sigset_t *blocked_set;
 
     while (qatomic_read(&ts->signal_pending)) {
-        /* FIXME: This is not threadsafe.  */
         sigfillset(&set);
         sigprocmask(SIG_SETMASK, &set, 0);
 
@@ -1202,4 +1198,27 @@ void process_pending_signals(CPUArchState *cpu_env)
         sigprocmask(SIG_SETMASK, &set, 0);
     }
     ts->in_sigsuspend = 0;
+}
+
+int process_sigsuspend_mask(sigset_t **pset, target_ulong sigset,
+                            target_ulong sigsize)
+{
+    TaskState *ts = (TaskState *)thread_cpu->opaque;
+    sigset_t *host_set = &ts->sigsuspend_mask;
+    target_sigset_t *target_sigset;
+
+    if (sigsize != sizeof(*target_sigset)) {
+        /* Like the kernel, we enforce correct size sigsets */
+        return -TARGET_EINVAL;
+    }
+
+    target_sigset = lock_user(VERIFY_READ, sigset, sigsize, 1);
+    if (!target_sigset) {
+        return -TARGET_EFAULT;
+    }
+    target_to_host_sigset(host_set, target_sigset);
+    unlock_user(target_sigset, sigset, 0);
+
+    *pset = host_set;
+    return 0;
 }

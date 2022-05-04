@@ -814,8 +814,9 @@ int virtio_gpu_create_mapping_iov(VirtIOGPU *g,
 
         do {
             len = l;
-            map = dma_memory_map(VIRTIO_DEVICE(g)->dma_as,
-                                 a, &len, DMA_DIRECTION_TO_DEVICE);
+            map = dma_memory_map(VIRTIO_DEVICE(g)->dma_as, a, &len,
+                                 DMA_DIRECTION_TO_DEVICE,
+                                 MEMTXATTRS_UNSPECIFIED);
             if (!map) {
                 qemu_log_mask(LOG_GUEST_ERROR, "%s: failed to map MMIO memory for"
                               " element %d\n", __func__, e);
@@ -830,9 +831,9 @@ int virtio_gpu_create_mapping_iov(VirtIOGPU *g,
             }
 
             if (!(v % 16)) {
-                *iov = g_realloc(*iov, sizeof(struct iovec) * (v + 16));
+                *iov = g_renew(struct iovec, *iov, v + 16);
                 if (addr) {
-                    *addr = g_realloc(*addr, sizeof(uint64_t) * (v + 16));
+                    *addr = g_renew(uint64_t, *addr, v + 16);
                 }
             }
             (*iov)[v].iov_base = map;
@@ -1252,8 +1253,9 @@ static int virtio_gpu_load(QEMUFile *f, void *opaque, size_t size,
         for (i = 0; i < res->iov_cnt; i++) {
             hwaddr len = res->iov[i].iov_len;
             res->iov[i].iov_base =
-                dma_memory_map(VIRTIO_DEVICE(g)->dma_as,
-                               res->addrs[i], &len, DMA_DIRECTION_TO_DEVICE);
+                dma_memory_map(VIRTIO_DEVICE(g)->dma_as, res->addrs[i], &len,
+                               DMA_DIRECTION_TO_DEVICE,
+                               MEMTXATTRS_UNSPECIFIED);
 
             if (!res->iov[i].iov_base || len != res->iov[i].iov_len) {
                 /* Clean up the half-a-mapping we just created... */

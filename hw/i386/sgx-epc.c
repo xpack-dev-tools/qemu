@@ -21,6 +21,7 @@
 
 static Property sgx_epc_properties[] = {
     DEFINE_PROP_UINT64(SGX_EPC_ADDR_PROP, SGXEPCDevice, addr, 0),
+    DEFINE_PROP_UINT32(SGX_EPC_NUMA_NODE_PROP, SGXEPCDevice, node, 0),
     DEFINE_PROP_LINK(SGX_EPC_MEMDEV_PROP, SGXEPCDevice, hostmem,
                      TYPE_MEMORY_BACKEND_EPC, HostMemoryBackendEpc *),
     DEFINE_PROP_END_OF_LIST(),
@@ -139,6 +140,8 @@ static void sgx_epc_md_fill_device_info(const MemoryDeviceState *md,
     se->memaddr = epc->addr;
     se->size = object_property_get_uint(OBJECT(epc), SGX_EPC_SIZE_PROP,
                                         NULL);
+    se->node = object_property_get_uint(OBJECT(epc), SGX_EPC_NUMA_NODE_PROP,
+                                        NULL);
     se->memdev = object_get_canonical_path(OBJECT(epc->hostmem));
 
     info->u.sgx_epc.data = se;
@@ -164,7 +167,7 @@ static void sgx_epc_class_init(ObjectClass *oc, void *data)
     mdc->fill_device_info = sgx_epc_md_fill_device_info;
 }
 
-static TypeInfo sgx_epc_info = {
+static const TypeInfo sgx_epc_info = {
     .name          = TYPE_SGX_EPC,
     .parent        = TYPE_DEVICE,
     .instance_size = sizeof(SGXEPCDevice),

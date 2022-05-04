@@ -8,6 +8,7 @@
 #ifndef TARGET_MIPS_TRANSLATE_H
 #define TARGET_MIPS_TRANSLATE_H
 
+#include "qemu/log.h"
 #include "exec/translator.h"
 
 #define MIPS_DEBUG_DISAS 0
@@ -129,6 +130,7 @@ enum {
 void generate_exception(DisasContext *ctx, int excp);
 void generate_exception_err(DisasContext *ctx, int excp, int err);
 void generate_exception_end(DisasContext *ctx, int excp);
+void generate_exception_break(DisasContext *ctx, int code);
 void gen_reserved_instruction(DisasContext *ctx);
 
 void check_insn(DisasContext *ctx, uint64_t flags);

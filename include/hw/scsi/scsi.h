@@ -30,7 +30,7 @@ struct SCSIRequest {
     int16_t           status;
     int16_t           host_status;
     void              *hba_private;
-    size_t            resid;
+    uint64_t          residual;
     SCSICommand       cmd;
     NotifierList      cancel_notifiers;
 
@@ -125,7 +125,7 @@ struct SCSIBusInfo {
                      void *hba_private);
     void (*transfer_data)(SCSIRequest *req, uint32_t arg);
     void (*fail)(SCSIRequest *req);
-    void (*complete)(SCSIRequest *req, size_t resid);
+    void (*complete)(SCSIRequest *req, size_t residual);
     void (*cancel)(SCSIRequest *req);
     void (*change)(SCSIBus *bus, SCSIDevice *dev, SCSISense sense);
     QEMUSGList *(*get_sg_list)(SCSIRequest *req);
@@ -158,7 +158,7 @@ struct SCSIBus {
  * provided by the caller. It is the caller's responsibility to make
  * sure that name does not clash with the name of any other bus in the
  * system. Unless you need the new bus to have a specific name, you
- * should use scsi_bus_new() instead.
+ * should use scsi_bus_init() instead.
  */
 void scsi_bus_init_named(SCSIBus *bus, size_t bus_size, DeviceState *host,
                          const SCSIBusInfo *info, const char *bus_name);

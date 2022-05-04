@@ -109,7 +109,6 @@
 #                 "socket-id": 0
 #             },
 #             "qom-path": "/machine/unattached/device[0]",
-#             "arch":"x86",
 #             "target":"x86_64",
 #             "cpu-index": 0
 #         },
@@ -121,7 +120,6 @@
 #                 "socket-id": 1
 #             },
 #             "qom-path": "/machine/unattached/device[2]",
-#             "arch":"x86",
 #             "target":"x86_64",
 #             "cpu-index": 1
 #         }
@@ -841,6 +839,7 @@
 #          "merge": false,
 #          "dump": true,
 #          "prealloc": false,
+#          "share": false,
 #          "host-nodes": [0, 1],
 #          "policy": "bind"
 #        },
@@ -849,6 +848,7 @@
 #          "merge": false,
 #          "dump": true,
 #          "prealloc": true,
+#          "share": false,
 #          "host-nodes": [2, 3],
 #          "policy": "preferred"
 #        }
@@ -867,7 +867,7 @@
 #
 # @node-id: NUMA node ID the CPU belongs to
 # @socket-id: socket number within node/board the CPU belongs to
-# @die-id: die number within node/board the CPU belongs to (Since 4.1)
+# @die-id: die number within socket the CPU belongs to (since 4.1)
 # @core-id: core number within die the CPU belongs to
 # @thread-id: thread number within core the CPU belongs to
 #
@@ -1207,12 +1207,15 @@
 #
 # @memdev: memory backend linked with device
 #
+# @node: the numa node (Since: 7.0)
+#
 # Since: 6.2
 ##
 { 'struct': 'SgxEPCDeviceInfo',
   'data': { '*id': 'str',
             'memaddr': 'size',
             'size': 'size',
+            'node': 'int',
             'memdev': 'str'
           }
 }
@@ -1285,10 +1288,15 @@
 #
 # @memdev: memory backend linked with device
 #
+# @node: the numa node (Since: 7.0)
+#
 # Since: 6.2
 ##
 { 'struct': 'SgxEPC',
-  'data': { 'memdev': 'str' } }
+  'data': { 'memdev': 'str',
+            'node': 'int'
+          }
+}
 
 ##
 # @SgxEPCProperties:
@@ -1348,7 +1356,8 @@
 # Example:
 #
 # <- { "event": "MEMORY_DEVICE_SIZE_CHANGE",
-#      "data": { "id": "vm0", "size": 1073741824},
+#      "data": { "id": "vm0", "size": 1073741824,
+#                "qom-path": "/machine/unattached/device[2]" },
 #      "timestamp": { "seconds": 1588168529, "microseconds": 201316 } }
 #
 ##
@@ -1396,7 +1405,9 @@
 #
 # @dies: number of dies per socket in the CPU topology
 #
-# @cores: number of cores per die in the CPU topology
+# @clusters: number of clusters per die in the CPU topology (since 7.0)
+#
+# @cores: number of cores per cluster in the CPU topology
 #
 # @threads: number of threads per core in the CPU topology
 #
@@ -1408,6 +1419,7 @@
      '*cpus': 'int',
      '*sockets': 'int',
      '*dies': 'int',
+     '*clusters': 'int',
      '*cores': 'int',
      '*threads': 'int',
      '*maxcpus': 'int' } }
@@ -1492,6 +1504,7 @@
 ##
 { 'command': 'x-query-profile',
   'returns': 'HumanReadableText',
+  'if': 'CONFIG_TCG',
   'features': [ 'unstable' ] }
 
 ##
@@ -1557,3 +1570,15 @@
 { 'command': 'x-query-usb',
   'returns': 'HumanReadableText',
   'features': [ 'unstable' ] }
+
+##
+# @SmbiosEntryPointType:
+#
+# @32: SMBIOS version 2.1 (32-bit) Entry Point
+#
+# @64: SMBIOS version 3.0 (64-bit) Entry Point
+#
+# Since: 7.0
+##
+{ 'enum': 'SmbiosEntryPointType',
+  'data': [ '32', '64' ] }

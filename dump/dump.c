@@ -1293,14 +1293,6 @@ static size_t get_len_buf_out(size_t page_size, uint32_t flag_compress)
     return 0;
 }
 
-/*
- * check if the page is all 0
- */
-static inline bool is_zero_page(const uint8_t *buf, size_t page_size)
-{
-    return buffer_is_zero(buf, page_size);
-}
-
 static void write_dump_pages(DumpState *s, Error **errp)
 {
     int ret = 0;
@@ -1357,7 +1349,7 @@ static void write_dump_pages(DumpState *s, Error **errp)
      */
     while (get_next_page(&block_iter, &pfn_iter, &buf, s)) {
         /* check zero page */
-        if (is_zero_page(buf, s->dump_info.page_size)) {
+        if (buffer_is_zero(buf, s->dump_info.page_size)) {
             ret = write_cache(&page_desc, &pd_zero, sizeof(PageDescriptor),
                               false);
             if (ret < 0) {
@@ -2049,7 +2041,7 @@ void qmp_dump_guest_memory(bool paging, const char *file,
 DumpGuestMemoryCapability *qmp_query_dump_guest_memory_capability(Error **errp)
 {
     DumpGuestMemoryCapability *cap =
-                                  g_malloc0(sizeof(DumpGuestMemoryCapability));
+                                  g_new0(DumpGuestMemoryCapability, 1);
     DumpGuestMemoryFormatList **tail = &cap->formats;
 
     /* elf is always available */

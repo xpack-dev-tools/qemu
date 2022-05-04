@@ -621,8 +621,7 @@ static void lsi_do_dma(LSIState *s, int out)
     dma_addr_t addr;
     SCSIDevice *dev;
 
-    assert(s->current);
-    if (!s->current->dma_len) {
+    if (!s->current || !s->current->dma_len) {
         /* Wait until data is available.  */
         trace_lsi_do_dma_unavailable();
         return;
@@ -2353,7 +2352,7 @@ static void lsi53c810_class_init(ObjectClass *klass, void *data)
     k->device_id = PCI_DEVICE_ID_LSI_53C810;
 }
 
-static TypeInfo lsi53c810_info = {
+static const TypeInfo lsi53c810_info = {
     .name          = TYPE_LSI53C810,
     .parent        = TYPE_LSI53C895A,
     .class_init    = lsi53c810_class_init,

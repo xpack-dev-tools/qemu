@@ -25,15 +25,14 @@
 #include "hw/core/cpu.h"
 #include "qom/object.h"
 
-typedef struct CPUNios2State CPUNios2State;
+typedef struct CPUArchState CPUNios2State;
 #if !defined(CONFIG_USER_ONLY)
 #include "mmu.h"
 #endif
 
 #define TYPE_NIOS2_CPU "nios2-cpu"
 
-OBJECT_DECLARE_TYPE(Nios2CPU, Nios2CPUClass,
-                    NIOS2_CPU)
+OBJECT_DECLARE_CPU_TYPE(Nios2CPU, Nios2CPUClass, NIOS2_CPU)
 
 /**
  * Nios2CPUClass:
@@ -155,14 +154,13 @@ struct Nios2CPUClass {
 
 #define CPU_INTERRUPT_NMI       CPU_INTERRUPT_TGT_EXT_3
 
-struct CPUNios2State {
+struct CPUArchState {
     uint32_t regs[NUM_CORE_REGS];
 
 #if !defined(CONFIG_USER_ONLY)
     Nios2MMU mmu;
-
-    uint32_t irq_pending;
 #endif
+    int error_code;
 };
 
 /**
@@ -171,7 +169,7 @@ struct CPUNios2State {
  *
  * A Nios2 CPU.
  */
-struct Nios2CPU {
+struct ArchCPU {
     /*< private >*/
     CPUState parent_obj;
     /*< public >*/

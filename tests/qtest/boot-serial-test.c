@@ -157,11 +157,11 @@ static testdef_t tests[] = {
     { "ppc64", "powernv8", "", "OPAL" },
     { "ppc64", "powernv9", "", "OPAL" },
     { "ppc64", "sam460ex", "-device e1000", "8086  100e" },
-    { "i386", "isapc", "-cpu qemu32 -device sga", "SGABIOS" },
-    { "i386", "pc", "-device sga", "SGABIOS" },
-    { "i386", "q35", "-device sga", "SGABIOS" },
-    { "x86_64", "isapc", "-cpu qemu32 -device sga", "SGABIOS" },
-    { "x86_64", "q35", "-device sga", "SGABIOS" },
+    { "i386", "isapc", "-cpu qemu32 -M graphics=off", "SeaBIOS" },
+    { "i386", "pc", "-M graphics=off", "SeaBIOS" },
+    { "i386", "q35", "-M graphics=off", "SeaBIOS" },
+    { "x86_64", "isapc", "-cpu qemu32 -M graphics=off", "SeaBIOS" },
+    { "x86_64", "q35", "-M graphics=off", "SeaBIOS" },
     { "sparc", "LX", "", "TMS390S10" },
     { "sparc", "SS-4", "", "MB86904" },
     { "sparc", "SS-600MP", "", "TMS390Z55" },
@@ -285,7 +285,8 @@ int main(int argc, char *argv[])
     g_test_init(&argc, &argv, NULL);
 
     for (i = 0; tests[i].arch != NULL; i++) {
-        if (strcmp(arch, tests[i].arch) == 0) {
+        if (g_str_equal(arch, tests[i].arch) &&
+            qtest_has_machine(tests[i].machine)) {
             char *name = g_strdup_printf("boot-serial/%s", tests[i].machine);
             qtest_add_data_func(name, &tests[i], test_machine);
             g_free(name);

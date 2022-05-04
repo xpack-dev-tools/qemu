@@ -91,6 +91,9 @@ static const int syscall_allowlist[] = {
     SCMP_SYS(renameat2),
     SCMP_SYS(removexattr),
     SCMP_SYS(restart_syscall),
+#ifdef __NR_rseq
+    SCMP_SYS(rseq), /* required since glibc 2.35 */
+#endif
     SCMP_SYS(rt_sigaction),
     SCMP_SYS(rt_sigprocmask),
     SCMP_SYS(rt_sigreturn),
@@ -108,6 +111,7 @@ static const int syscall_allowlist[] = {
     SCMP_SYS(set_robust_list),
     SCMP_SYS(setxattr),
     SCMP_SYS(symlinkat),
+    SCMP_SYS(syncfs),
     SCMP_SYS(time), /* Rarely needed, except on static builds */
     SCMP_SYS(tgkill),
     SCMP_SYS(unlinkat),

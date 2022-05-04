@@ -21,7 +21,6 @@
 
 import os
 
-from qemu.aqmp import ConnectError
 from qemu.machine import machine
 from qemu.qmp import QMPConnectError
 
@@ -35,8 +34,7 @@ source = os.path.join(iotests.test_dir, 'source.img')
 
 class TestMirrorTopPerms(iotests.QMPTestCase):
     def setUp(self):
-        assert qemu_img('create', '-f', iotests.imgfmt, source,
-                        str(image_size)) == 0
+        qemu_img('create', '-f', iotests.imgfmt, source, str(image_size))
         self.vm = iotests.VM()
         self.vm.add_drive(source)
         self.vm.add_blockdev(f'null-co,node-name=null,size={image_size}')
@@ -107,7 +105,7 @@ class TestMirrorTopPerms(iotests.QMPTestCase):
                 self.vm_b.launch()
                 print('ERROR: VM B launched successfully, '
                       'this should not have happened')
-        except (QMPConnectError, ConnectError):
+        except (QMPConnectError, machine.VMLaunchFailure):
             assert 'Is another process using the image' in self.vm_b.get_log()
 
         result = self.vm.qmp('block-job-cancel',

@@ -25,6 +25,7 @@
 #include "trace.h"
 #include "nbd-internal.h"
 #include "qemu/units.h"
+#include "qemu/memalign.h"
 
 #define NBD_META_ID_BASE_ALLOCATION 0
 #define NBD_META_ID_ALLOCATION_DEPTH 1
@@ -77,7 +78,6 @@ static int system_errno_to_nbd_errno(int err)
 typedef struct NBDRequestData NBDRequestData;
 
 struct NBDRequestData {
-    QSIMPLEQ_ENTRY(NBDRequestData) entry;
     NBDClient *client;
     uint8_t *data;
     bool complete;
@@ -213,7 +213,7 @@ static int nbd_negotiate_send_rep(NBDClient *client, uint32_t type,
 
 /* Send an error reply.
  * Return -errno on error, 0 on success. */
-static int GCC_FMT_ATTR(4, 0)
+static int G_GNUC_PRINTF(4, 0)
 nbd_negotiate_send_rep_verr(NBDClient *client, uint32_t type,
                             Error **errp, const char *fmt, va_list va)
 {
@@ -253,7 +253,7 @@ nbd_sanitize_name(const char *name)
 
 /* Send an error reply.
  * Return -errno on error, 0 on success. */
-static int GCC_FMT_ATTR(4, 5)
+static int G_GNUC_PRINTF(4, 5)
 nbd_negotiate_send_rep_err(NBDClient *client, uint32_t type,
                            Error **errp, const char *fmt, ...)
 {
@@ -269,7 +269,7 @@ nbd_negotiate_send_rep_err(NBDClient *client, uint32_t type,
 /* Drop remainder of the current option, and send a reply with the
  * given error type and message. Return -errno on read or write
  * failure; or 0 if connection is still live. */
-static int GCC_FMT_ATTR(4, 0)
+static int G_GNUC_PRINTF(4, 0)
 nbd_opt_vdrop(NBDClient *client, uint32_t type, Error **errp,
               const char *fmt, va_list va)
 {
@@ -282,7 +282,7 @@ nbd_opt_vdrop(NBDClient *client, uint32_t type, Error **errp,
     return ret;
 }
 
-static int GCC_FMT_ATTR(4, 5)
+static int G_GNUC_PRINTF(4, 5)
 nbd_opt_drop(NBDClient *client, uint32_t type, Error **errp,
              const char *fmt, ...)
 {
@@ -296,7 +296,7 @@ nbd_opt_drop(NBDClient *client, uint32_t type, Error **errp,
     return ret;
 }
 
-static int GCC_FMT_ATTR(3, 4)
+static int G_GNUC_PRINTF(3, 4)
 nbd_opt_invalid(NBDClient *client, Error **errp, const char *fmt, ...)
 {
     int ret;
@@ -2064,7 +2064,7 @@ static void nbd_extent_array_free(NBDExtentArray *ea)
     g_free(ea->extents);
     g_free(ea);
 }
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(NBDExtentArray, nbd_extent_array_free);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(NBDExtentArray, nbd_extent_array_free)
 
 /* Further modifications of the array after conversion are abandoned */
 static void nbd_extent_array_convert_to_be(NBDExtentArray *ea)
@@ -2085,11 +2085,10 @@ static void nbd_extent_array_convert_to_be(NBDExtentArray *ea)
  * Add extent to NBDExtentArray. If extent can't be added (no available space),
  * return -1.
  * For safety, when returning -1 for the first time, .can_add is set to false,
- * further call to nbd_extent_array_add() will crash.
- * (to avoid the situation, when after failing to add an extent (returned -1),
- * user miss this failure and add another extent, which is successfully added
- * (array is full, but new extent may be squashed into the last one), then we
- * have invalid array with skipped extent)
+ * and further calls to nbd_extent_array_add() will crash.
+ * (this avoids the situation where a caller ignores failure to add one extent,
+ * where adding another extent that would squash into the last array entry
+ * would result in an incorrect range reported to the client)
  */
 static int nbd_extent_array_add(NBDExtentArray *ea,
                                 uint32_t length, uint32_t flags)
@@ -2288,7 +2287,7 @@ static int nbd_co_receive_request(NBDRequestData *req, NBDRequest *request,
     assert(client->recv_coroutine == qemu_coroutine_self());
     ret = nbd_receive_request(client, request, errp);
     if (ret < 0) {
-        return  ret;
+        return ret;
     }
 
     trace_nbd_co_receive_request_decode_type(request->handle, request->type,
@@ -2648,7 +2647,7 @@ static coroutine_fn void nbd_trip(void *opaque)
     }
 
     if (ret < 0) {
-        /* It wans't -EIO, so, according to nbd_co_receive_request()
+        /* It wasn't -EIO, so, according to nbd_co_receive_request()
          * semantics, we should return the error to the client. */
         Error *export_err = local_err;
 

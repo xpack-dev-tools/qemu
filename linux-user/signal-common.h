@@ -20,6 +20,8 @@
 #ifndef SIGNAL_COMMON_H
 #define SIGNAL_COMMON_H
 
+#include "special-errno.h"
+
 /* Fallback addresses into sigtramp page. */
 extern abi_ulong default_sigreturn;
 extern abi_ulong default_rt_sigreturn;
@@ -57,8 +59,8 @@ void setup_rt_frame(int sig, struct target_sigaction *ka,
 
 void process_pending_signals(CPUArchState *cpu_env);
 void signal_init(void);
-int queue_signal(CPUArchState *env, int sig, int si_type,
-                 target_siginfo_t *info);
+void queue_signal(CPUArchState *env, int sig, int si_type,
+                  target_siginfo_t *info);
 void host_to_target_siginfo(target_siginfo_t *tinfo, const siginfo_t *info);
 void target_to_host_siginfo(siginfo_t *info, const target_siginfo_t *tinfo);
 int target_to_host_signal(int sig);
@@ -76,7 +78,7 @@ abi_long do_swapcontext(CPUArchState *env, abi_ulong uold_ctx,
  * Block all signals, and arrange that the signal mask is returned to
  * its correct value for the guest before we resume execution of guest code.
  * If this function returns non-zero, then the caller should immediately
- * return -TARGET_ERESTARTSYS to the main loop, which will take the pending
+ * return -QEMU_ERESTARTSYS to the main loop, which will take the pending
  * signal and restart execution of the syscall.
  * If block_signals() returns zero, then the caller can continue with
  * emulation of the system call knowing that no signals can be taken
@@ -89,5 +91,31 @@ abi_long do_swapcontext(CPUArchState *env, abi_ulong uold_ctx,
  * Return value: non-zero if there was a pending signal, zero if not.
  */
 int block_signals(void); /* Returns non zero if signal pending */
+
+/**
+ * process_sigsuspend_mask: read and apply syscall-local signal mask
+ *
+ * Read the guest signal mask from @sigset, length @sigsize.
+ * Convert that to a host signal mask and save it to sigpending_mask.
+ *
+ * Return value: negative target errno, or zero;
+ *               store &sigpending_mask into *pset on success.
+ */
+int process_sigsuspend_mask(sigset_t **pset, target_ulong sigset,
+                            target_ulong sigsize);
+
+/**
+ * finish_sigsuspend_mask: finish a sigsuspend-like syscall
+ *
+ * Set in_sigsuspend if we need to use the modified sigset
+ * during process_pending_signals.
+ */
+static inline void finish_sigsuspend_mask(int ret)
+{
+    if (ret != -QEMU_ERESTARTSYS) {
+        TaskState *ts = (TaskState *)thread_cpu->opaque;
+        ts->in_sigsuspend = 1;
+    }
+}
 
 #endif

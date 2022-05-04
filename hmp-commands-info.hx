@@ -358,6 +358,7 @@ SRST
     Show host USB devices.
 ERST
 
+#if defined(CONFIG_TCG)
     {
         .name       = "profile",
         .args_type  = "",
@@ -365,6 +366,7 @@ ERST
         .help       = "show profiling information",
         .cmd_info_hrt = qmp_x_query_profile,
     },
+#endif
 
 SRST
   ``info profile``
@@ -876,4 +878,19 @@ ERST
 SRST
   ``info sgx``
     Show intel SGX information.
+ERST
+
+#if defined(TARGET_M68K) || defined(TARGET_PPC)
+    {
+        .name         = "via",
+        .args_type    = "",
+        .params       = "",
+        .help         = "show guest mos6522 VIA devices",
+        .cmd          = hmp_info_via,
+    },
+#endif
+
+SRST
+  ``info via``
+    Show guest mos6522 VIA devices.
 ERST

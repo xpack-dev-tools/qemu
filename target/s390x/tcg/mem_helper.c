@@ -19,6 +19,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/log.h"
 #include "cpu.h"
 #include "s390x-internal.h"
 #include "tcg_s390x.h"
@@ -544,6 +545,26 @@ static uint32_t do_helper_mvc(CPUS390XState *env, uint32_t l, uint64_t dest,
 void HELPER(mvc)(CPUS390XState *env, uint32_t l, uint64_t dest, uint64_t src)
 {
     do_helper_mvc(env, l, dest, src, GETPC());
+}
+
+/* move right to left */
+void HELPER(mvcrl)(CPUS390XState *env, uint64_t l, uint64_t dest, uint64_t src)
+{
+    const int mmu_idx = cpu_mmu_index(env, false);
+    const uint64_t ra = GETPC();
+    S390Access srca, desta;
+    int32_t i;
+
+    /* MVCRL always copies one more byte than specified - maximum is 256 */
+    l++;
+
+    srca = access_prepare(env, src, l, MMU_DATA_LOAD, mmu_idx, ra);
+    desta = access_prepare(env, dest, l, MMU_DATA_STORE, mmu_idx, ra);
+
+    for (i = l - 1; i >= 0; i--) {
+        uint8_t byte = access_get_byte(env, &srca, i, ra);
+        access_set_byte(env, &desta, i, byte, ra);
+    }
 }
 
 /* move inverse  */
@@ -1895,7 +1916,7 @@ static uint32_t do_csst(CPUS390XState *env, uint32_t r3, uint64_t a1,
 
             if (parallel) {
 #ifdef CONFIG_ATOMIC64
-                MemOpIdx oi = make_memop_idx(MO_TEQ | MO_ALIGN, mem_idx);
+                MemOpIdx oi = make_memop_idx(MO_TEUQ | MO_ALIGN, mem_idx);
                 ov = cpu_atomic_cmpxchgq_be_mmu(env, a1, cv, nv, oi, ra);
 #else
                 /* Note that we asserted !parallel above.  */
@@ -1970,7 +1991,7 @@ static uint32_t do_csst(CPUS390XState *env, uint32_t r3, uint64_t a1,
                 cpu_stq_data_ra(env, a2 + 0, svh, ra);
                 cpu_stq_data_ra(env, a2 + 8, svl, ra);
             } else if (HAVE_ATOMIC128) {
-                MemOpIdx oi = make_memop_idx(MO_TEQ | MO_ALIGN_16, mem_idx);
+                MemOpIdx oi = make_memop_idx(MO_TEUQ | MO_ALIGN_16, mem_idx);
                 Int128 sv = int128_make128(svl, svh);
                 cpu_atomic_sto_be_mmu(env, a2, sv, oi, ra);
             } else {
@@ -2494,7 +2515,7 @@ uint64_t HELPER(lpq_parallel)(CPUS390XState *env, uint64_t addr)
     assert(HAVE_ATOMIC128);
 
     mem_idx = cpu_mmu_index(env, false);
-    oi = make_memop_idx(MO_TEQ | MO_ALIGN_16, mem_idx);
+    oi = make_memop_idx(MO_TEUQ | MO_ALIGN_16, mem_idx);
     v = cpu_atomic_ldo_be_mmu(env, addr, oi, ra);
     hi = int128_gethi(v);
     lo = int128_getlo(v);
@@ -2525,7 +2546,7 @@ void HELPER(stpq_parallel)(CPUS390XState *env, uint64_t addr,
     assert(HAVE_ATOMIC128);
 
     mem_idx = cpu_mmu_index(env, false);
-    oi = make_memop_idx(MO_TEQ | MO_ALIGN_16, mem_idx);
+    oi = make_memop_idx(MO_TEUQ | MO_ALIGN_16, mem_idx);
     v = int128_make128(low, high);
     cpu_atomic_sto_be_mmu(env, addr, v, oi, ra);
 }

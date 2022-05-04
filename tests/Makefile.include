@@ -23,7 +23,7 @@ endif
 	@echo " $(MAKE) check-clean          Clean the tests and related data"
 	@echo
 	@echo "The following are useful for CI builds"
-	@echo " $(MAKE) check-build          Build most test binaris"
+	@echo " $(MAKE) check-build          Build most test binaries"
 	@echo " $(MAKE) get-vm-images        Downloads all images used by avocado tests, according to configured targets (~350 MB each, 1.5 GB max)"
 	@echo
 	@echo
@@ -33,10 +33,6 @@ endif
 
 ifneq ($(wildcard config-host.mak),)
 export SRC_PATH
-
-# Get the list of all supported sysemu targets
-SYSEMU_TARGET_LIST := $(subst -softmmu.mak,,$(notdir \
-   $(wildcard $(SRC_PATH)/configs/*-softmmu.mak)))
 
 SPEED = quick
 
@@ -151,31 +147,14 @@ check-acceptance: check-acceptance-deprecated-warning | check-avocado
 
 # Consolidated targets
 
-.PHONY: check-block check check-clean get-vm-images
+.PHONY: check check-clean get-vm-images
 check:
-
-ifeq ($(CONFIG_TOOLS)$(CONFIG_POSIX),yy)
-check: check-block
-export PYTHON
-
-ifneq ($(filter check check-block check-build, $(MAKECMDGOALS)),)
-ninja-cmd-goals += \
-	qemu-img$(EXESUF) \
-	qemu-io$(EXESUF) \
-	qemu-nbd$(EXESUF) \
-	storage-daemon/qemu-storage-daemon$(EXESUF) \
-	$(filter qemu-system-%, $(ninja-targets))
-endif
-
-check-block: $(SRC_PATH)/tests/check-block.sh run-ninja
-	@$<
-endif
 
 check-build: run-ninja
 
 check-clean:
 	rm -rf $(TESTS_VENV_DIR) $(TESTS_RESULTS_DIR)
 
-clean: check-clean
+clean: check-clean clean-tcg
 
 endif

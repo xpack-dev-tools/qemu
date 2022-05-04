@@ -50,6 +50,14 @@
 #define LQSPI_ADDR          0xc0000000
 #define QSPI_IRQ            15
 #define QSPI_DMA_ADDR       0xff0f0800
+#define NUM_QSPI_IRQ_LINES  2
+
+#define CRF_ADDR            0xfd1a0000
+#define CRF_IRQ             120
+
+/* Serializer/Deserializer.  */
+#define SERDES_ADDR         0xfd400000
+#define SERDES_SIZE         0x20000
 
 #define DP_ADDR             0xfd4a0000
 #define DP_IRQ              113
@@ -58,7 +66,7 @@
 #define DPDMA_IRQ           116
 
 #define APU_ADDR            0xfd5c0000
-#define APU_SIZE            0x100
+#define APU_IRQ             153
 
 #define IPI_ADDR            0xFF300000
 #define IPI_IRQ             64
@@ -215,7 +223,9 @@ static void xlnx_zynqmp_create_rpu(MachineState *ms, XlnxZynqMPState *s,
 
         name = object_get_canonical_path_component(OBJECT(&s->rpu_cpu[i]));
         if (strcmp(name, boot_cpu)) {
-            /* Secondary CPUs start in PSCI powered-down state */
+            /*
+             * Secondary CPUs start in powered-down state.
+             */
             object_property_set_bool(OBJECT(&s->rpu_cpu[i]),
                                      "start-powered-off", true, &error_abort);
         } else {
@@ -273,6 +283,39 @@ static void xlnx_zynqmp_create_efuse(XlnxZynqMPState *s, qemu_irq *gic)
     sysbus_connect_irq(sbd, 0, gic[EFUSE_IRQ]);
 }
 
+static void xlnx_zynqmp_create_apu_ctrl(XlnxZynqMPState *s, qemu_irq *gic)
+{
+    SysBusDevice *sbd;
+    int i;
+
+    object_initialize_child(OBJECT(s), "apu-ctrl", &s->apu_ctrl,
+                            TYPE_XLNX_ZYNQMP_APU_CTRL);
+    sbd = SYS_BUS_DEVICE(&s->apu_ctrl);
+
+    for (i = 0; i < XLNX_ZYNQMP_NUM_APU_CPUS; i++) {
+        g_autofree gchar *name = g_strdup_printf("cpu%d", i);
+
+        object_property_set_link(OBJECT(&s->apu_ctrl), name,
+                                 OBJECT(&s->apu_cpu[i]), &error_abort);
+    }
+
+    sysbus_realize(sbd, &error_fatal);
+    sysbus_mmio_map(sbd, 0, APU_ADDR);
+    sysbus_connect_irq(sbd, 0, gic[APU_IRQ]);
+}
+
+static void xlnx_zynqmp_create_crf(XlnxZynqMPState *s, qemu_irq *gic)
+{
+    SysBusDevice *sbd;
+
+    object_initialize_child(OBJECT(s), "crf", &s->crf, TYPE_XLNX_ZYNQMP_CRF);
+    sbd = SYS_BUS_DEVICE(&s->crf);
+
+    sysbus_realize(sbd, &error_fatal);
+    sysbus_mmio_map(sbd, 0, CRF_ADDR);
+    sysbus_connect_irq(sbd, 0, gic[CRF_IRQ]);
+}
+
 static void xlnx_zynqmp_create_unimp_mmio(XlnxZynqMPState *s)
 {
     static const struct UnimpInfo {
@@ -280,7 +323,7 @@ static void xlnx_zynqmp_create_unimp_mmio(XlnxZynqMPState *s)
         hwaddr base;
         hwaddr size;
     } unimp_areas[ARRAY_SIZE(s->mr_unimp)] = {
-        { .name = "apu", APU_ADDR, APU_SIZE },
+        { .name = "serdes", SERDES_ADDR, SERDES_SIZE },
     };
     unsigned int nr;
 
@@ -362,6 +405,8 @@ static void xlnx_zynqmp_init(Object *obj)
     }
 
     object_initialize_child(obj, "qspi-dma", &s->qspi_dma, TYPE_XLNX_CSU_DMA);
+    object_initialize_child(obj, "qspi-irq-orgate",
+                            &s->qspi_irq_orgate, TYPE_OR_IRQ);
 }
 
 static void xlnx_zynqmp_realize(DeviceState *dev, Error **errp)
@@ -435,12 +480,11 @@ static void xlnx_zynqmp_realize(DeviceState *dev, Error **errp)
     for (i = 0; i < num_apus; i++) {
         const char *name;
 
-        object_property_set_int(OBJECT(&s->apu_cpu[i]), "psci-conduit",
-                                QEMU_PSCI_CONDUIT_SMC, &error_abort);
-
         name = object_get_canonical_path_component(OBJECT(&s->apu_cpu[i]));
         if (strcmp(name, boot_cpu)) {
-            /* Secondary CPUs start in PSCI powered-down state */
+            /*
+             * Secondary CPUs start in powered-down state.
+             */
             object_property_set_bool(OBJECT(&s->apu_cpu[i]),
                                      "start-powered-off", true, &error_abort);
         } else {
@@ -675,6 +719,8 @@ static void xlnx_zynqmp_realize(DeviceState *dev, Error **errp)
 
     xlnx_zynqmp_create_bbram(s, gic_spi);
     xlnx_zynqmp_create_efuse(s, gic_spi);
+    xlnx_zynqmp_create_apu_ctrl(s, gic_spi);
+    xlnx_zynqmp_create_crf(s, gic_spi);
     xlnx_zynqmp_create_unimp_mmio(s);
 
     for (i = 0; i < XLNX_ZYNQMP_NUM_GDMA_CH; i++) {
@@ -709,6 +755,11 @@ static void xlnx_zynqmp_realize(DeviceState *dev, Error **errp)
                            gic_spi[adma_ch_intr[i]]);
     }
 
+    object_property_set_int(OBJECT(&s->qspi_irq_orgate),
+                            "num-lines", NUM_QSPI_IRQ_LINES, &error_fatal);
+    qdev_realize(DEVICE(&s->qspi_irq_orgate), NULL, &error_fatal);
+    qdev_connect_gpio_out(DEVICE(&s->qspi_irq_orgate), 0, gic_spi[QSPI_IRQ]);
+
     if (!object_property_set_link(OBJECT(&s->qspi_dma), "dma",
                                   OBJECT(system_memory), errp)) {
         return;
@@ -718,7 +769,8 @@ static void xlnx_zynqmp_realize(DeviceState *dev, Error **errp)
     }
 
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->qspi_dma), 0, QSPI_DMA_ADDR);
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->qspi_dma), 0, gic_spi[QSPI_IRQ]);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->qspi_dma), 0,
+                       qdev_get_gpio_in(DEVICE(&s->qspi_irq_orgate), 0));
 
     if (!object_property_set_link(OBJECT(&s->qspi), "stream-connected-dma",
                                   OBJECT(&s->qspi_dma), errp)) {
@@ -729,7 +781,8 @@ static void xlnx_zynqmp_realize(DeviceState *dev, Error **errp)
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->qspi), 0, QSPI_ADDR);
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->qspi), 1, LQSPI_ADDR);
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->qspi), 0, gic_spi[QSPI_IRQ]);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->qspi), 0,
+                       qdev_get_gpio_in(DEVICE(&s->qspi_irq_orgate), 1));
 
     for (i = 0; i < XLNX_ZYNQMP_NUM_QSPI_BUS; i++) {
         g_autofree gchar *bus_name = g_strdup_printf("qspi%d", i);

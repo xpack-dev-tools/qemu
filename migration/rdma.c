@@ -2705,6 +2705,7 @@ static int qemu_rdma_dest_init(RDMAContext *rdma, Error **errp)
     char ip[40] = "unknown";
     struct rdma_addrinfo *res, *e;
     char port_str[16];
+    int reuse = 1;
 
     for (idx = 0; idx < RDMA_WRID_MAX; idx++) {
         rdma->wr_data[idx].control_len = 0;
@@ -2740,6 +2741,12 @@ static int qemu_rdma_dest_init(RDMAContext *rdma, Error **errp)
         goto err_dest_init_bind_addr;
     }
 
+    ret = rdma_set_option(listen_id, RDMA_OPTION_ID, RDMA_OPTION_ID_REUSEADDR,
+                          &reuse, sizeof reuse);
+    if (ret) {
+        ERROR(errp, "Error: could not set REUSEADDR option");
+        goto err_dest_init_bind_addr;
+    }
     for (e = res; e != NULL; e = e->ai_next) {
         inet_ntop(e->ai_family,
             &((struct sockaddr_in *) e->ai_dst_addr)->sin_addr, ip, sizeof ip);
@@ -3161,14 +3168,14 @@ static void qio_channel_rdma_set_aio_fd_handler(QIOChannel *ioc,
     QIOChannelRDMA *rioc = QIO_CHANNEL_RDMA(ioc);
     if (io_read) {
         aio_set_fd_handler(ctx, rioc->rdmain->recv_comp_channel->fd,
-                           false, io_read, io_write, NULL, opaque);
+                           false, io_read, io_write, NULL, NULL, opaque);
         aio_set_fd_handler(ctx, rioc->rdmain->send_comp_channel->fd,
-                           false, io_read, io_write, NULL, opaque);
+                           false, io_read, io_write, NULL, NULL, opaque);
     } else {
         aio_set_fd_handler(ctx, rioc->rdmaout->recv_comp_channel->fd,
-                           false, io_read, io_write, NULL, opaque);
+                           false, io_read, io_write, NULL, NULL, opaque);
         aio_set_fd_handler(ctx, rioc->rdmaout->send_comp_channel->fd,
-                           false, io_read, io_write, NULL, opaque);
+                           false, io_read, io_write, NULL, NULL, opaque);
     }
 }
 

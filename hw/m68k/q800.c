@@ -533,10 +533,11 @@ static void q800_init(MachineState *machine)
 
     sysbus = SYS_BUS_DEVICE(dev);
     sysbus_realize_and_unref(sysbus, &error_fatal);
-    sysbus_connect_irq(sysbus, 0, qdev_get_gpio_in(via2_dev,
-                                                   VIA2_IRQ_SCSI_BIT));
-    sysbus_connect_irq(sysbus, 1, qdev_get_gpio_in(via2_dev,
-                                                   VIA2_IRQ_SCSI_DATA_BIT));
+    /* SCSI and SCSI data IRQs are negative edge triggered */
+    sysbus_connect_irq(sysbus, 0, qemu_irq_invert(qdev_get_gpio_in(via2_dev,
+                                                  VIA2_IRQ_SCSI_BIT)));
+    sysbus_connect_irq(sysbus, 1, qemu_irq_invert(qdev_get_gpio_in(via2_dev,
+                                                  VIA2_IRQ_SCSI_DATA_BIT)));
     sysbus_mmio_map(sysbus, 0, ESP_BASE);
     sysbus_mmio_map(sysbus, 1, ESP_PDMA);
 
@@ -672,12 +673,13 @@ static void q800_init(MachineState *machine)
 
         /* Remove qtest_enabled() check once firmware files are in the tree */
         if (!qtest_enabled()) {
-            if (bios_size < 0 || bios_size > MACROM_SIZE) {
+            if (bios_size <= 0 || bios_size > MACROM_SIZE) {
                 error_report("could not load MacROM '%s'", bios_name);
                 exit(1);
             }
 
-            ptr = rom_ptr(MACROM_ADDR, MACROM_SIZE);
+            ptr = rom_ptr(MACROM_ADDR, bios_size);
+            assert(ptr != NULL);
             stl_phys(cs->as, 0, ldl_p(ptr));    /* reset initial SP */
             stl_phys(cs->as, 4,
                      MACROM_ADDR + ldl_p(ptr + 4)); /* reset initial PC */
