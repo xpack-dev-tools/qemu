@@ -251,7 +251,7 @@ static void cortexm_mcu_realize_callback(DeviceState *dev, Error **errp)
     if (sram_size_kb == 0) {
         /* First try the board definition */
         /* To be noted, setting -m affects this value. */
-        sram_size_kb = machine->ram_size / (1024 * 1024);
+        sram_size_kb = machine->ram_size / 1024;
     }
     if (sram_size_kb == 0) {
         /* Otherwise use the MCU value */
