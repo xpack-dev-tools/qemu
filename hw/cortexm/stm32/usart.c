@@ -1332,6 +1332,35 @@ static void stm32f4_usart_receive(void *obj, const uint8_t *buf, int size)
 }
 #endif
 
+static peripheral_register_t stm32f4_usart_dr_pre_read_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size)
+{
+    STM32USARTState *state = STM32_USART_STATE(periph);
+
+    peripheral_register_and_raw_value(state->reg.sr, ~USART_SR_RXNE);
+    if (state->chr) {
+        uint8_t chr = 0;
+        CharBackend backend = {.chr = state->chr};
+        qemu_chr_fe_read_all(&backend, &chr, 1);
+        return chr;
+    }
+
+    return 0;
+}
+
+static peripheral_register_t stm32f4_usart_sr_pre_read_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size)
+{
+    STM32USARTState *state = STM32_USART_STATE(periph);
+
+    uint32_t sr = peripheral_register_get_raw_value(state->reg.sr);
+    if (state->chr && state->chr->chr_sync_read != NULL) {
+        return sr | USART_SR_RXNE;
+    }
+
+    return sr;
+}
+
 static void stm32f4_usart_dr_post_read_callback(Object *reg, Object *periph,
         uint32_t addr, uint32_t offset, unsigned size)
 {
@@ -1358,9 +1387,8 @@ static void stm32f4_usart_dr_post_write_callback(Object *reg, Object *periph,
     if ((cr1 & USART_CR1_UE) && (cr1 & USART_CR1_TE)) {
         if (state->chr) {
             ch = full_value; /* Use only the lower 8 bits */
-#if 0
-            qemu_chr_fe_write_all(state->chr, &ch, 1);
-#endif
+            CharBackend backend = {.chr = state->chr};
+            qemu_chr_fe_write_all(&backend, &ch, 1);
         }
         // transmission is immediately complete
         peripheral_register_or_raw_value(state->reg.sr,
@@ -1570,6 +1598,10 @@ static void stm32_usart_realize_callback(DeviceState *dev, Error **errp)
         state->reg.gtpr = state->u.f4.reg.gtpr;
 
         // Register callbacks.
+        peripheral_register_set_pre_read(state->reg.dr,
+                &stm32f4_usart_dr_pre_read_callback);
+        peripheral_register_set_pre_read(state->reg.sr,
+                &stm32f4_usart_sr_pre_read_callback);
         peripheral_register_set_post_read(state->reg.dr,
                 &stm32f4_usart_dr_post_read_callback);
         peripheral_register_set_post_write(state->reg.dr,
