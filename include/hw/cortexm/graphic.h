@@ -94,9 +94,11 @@ typedef struct {
 
 // Storage for LED graphic context, stored in GPIOLEDState
 typedef struct {
+#ifdef CONFIG_SDL
     SDL_Rect rectangle;
     SDL_Surface *crop_off;
     SDL_Surface *crop_on;
+#endif
 } LEDGraphicContext;
 
 // ----------------------------------------------------------------------------

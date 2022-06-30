@@ -44,7 +44,9 @@ void button_reset_create_from_info(Object *parent, ButtonResetInfo *info,
 
     cm_object_realize(button);
 
+#if defined(CONFIG_SDL)
     cortexm_graphic_board_add_button(graphic_context, BUTTON_STATE(button));
+#endif /* defined(CONFIG_SDL) */
 
 #if defined(CONFIG_VERBOSE)
     if (verbosity_level >= VERBOSITY_DETAILED) {
