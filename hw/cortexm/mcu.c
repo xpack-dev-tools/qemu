@@ -111,7 +111,7 @@ static void cortexm_mcu_realize_callback(DeviceState *dev, Error **errp)
         const char *svd_full_name = qemu_find_file(QEMU_FILE_TYPE_DEVICES,
                 capabilities->svd_file_name);
         if (svd_full_name == NULL) {
-            error_printf("JSON SVD file '%s' not found.\n", svd_full_name);
+            error_printf("JSON SVD file '%s' not found.\n", capabilities->svd_file_name);
             exit(1);
         }
 
