@@ -40,7 +40,6 @@
 #include "qemu/thread.h"
 #include "qemu/log.h"
 
-#include <SDL.h>
 int qemu_main(int argc, char **argv, char **envp);
 
 #include <hw/cortexm/graphic.h>
@@ -99,7 +98,9 @@ int main(int argc, char **argv)
 
 #endif /* !defined(USE_GRAPHIC_POLL_EVENT) */
 
+#ifdef CONFIG_SDL
     cortexm_graphic_quit();
+#endif
 
     qemu_log_mask(LOG_FUNC, "%s() done.\n", __FUNCTION__);
 
@@ -4809,7 +4810,9 @@ int main(int argc, char **argv, char **envp)
 
 #else
 
+#ifdef CONFIG_SDL
     cortexm_graphic_start(nographic);
+#endif
 
 #endif /* !defined(CONFIG_GNU_MCU_ECLIPSE) */
 

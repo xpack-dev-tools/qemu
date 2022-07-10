@@ -31,6 +31,8 @@
 #include "verbosity.h"
 #endif
 
+#ifdef CONFIG_SDL
+
 // ----------------------------------------------------------------------------
 
 static void cortexm_graphic_board_init_graphic_context(
@@ -718,3 +720,4 @@ static void cortexm_graphic_led_turn(BoardGraphicContext *board_graphic_context,
 
 // ----------------------------------------------------------------------------
 
+#endif

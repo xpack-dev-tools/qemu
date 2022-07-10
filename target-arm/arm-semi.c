@@ -678,7 +678,7 @@ target_ulong do_arm_semihosting(CPUARMState *env)
         }
 #endif
 
-#if defined(CONFIG_GNU_MCU_ECLIPSE)
+#if defined(CONFIG_GNU_MCU_ECLIPSE) && defined(CONFIG_SDL)
 
         CortexMBoardState *board = cortexm_board_get();
         if (board != NULL) {

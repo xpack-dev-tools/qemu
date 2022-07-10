@@ -61,7 +61,9 @@ void button_gpio_create_from_info(Object *parent, ButtonGPIOInfo *info_array,
                     info->gpio_bit);
         }
 
+#if defined(CONFIG_SDL)
         cortexm_graphic_board_add_button(graphic_context, BUTTON_STATE(button));
+#endif /* defined(CONFIG_SDL) */
 
 #if defined(CONFIG_VERBOSE)
         if (verbosity_level >= VERBOSITY_DETAILED) {

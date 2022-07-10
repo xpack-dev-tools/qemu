@@ -233,7 +233,9 @@ static void gpio_led_instance_init_callback(Object *obj)
     // A helper class is gpio_led_connect().
 
     // Explicitly start with the graphic context cleared.
+#ifdef CONFIG_SDL
     cortexm_graphic_led_clear_graphic_context(&(state->led_graphic_context));
+#endif /* defined(CONFIG_SDL) */
 }
 
 static void gpio_led_realize_callback(DeviceState *dev, Error **errp)
