@@ -17,6 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <glib.h>
+
 extern "C" {
 #include "qemu/osdep.h"
 #include "disas/bfd.h"

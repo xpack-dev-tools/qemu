@@ -16,7 +16,9 @@
 #ifndef QEMU_GLIB_COMPAT_H
 #define QEMU_GLIB_COMPAT_H
 
+#if !defined(__cplusplus)
 #include <glib.h>
+#endif
 
 /* GLIB version compatibility flags */
 #if !GLIB_CHECK_VERSION(2, 26, 0)
