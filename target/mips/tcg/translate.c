@@ -1545,7 +1545,7 @@ void check_cop1x(DisasContext *ctx)
  */
 void check_cp1_64bitmode(DisasContext *ctx)
 {
-    if (unlikely(~ctx->hflags & (MIPS_HFLAG_F64 | MIPS_HFLAG_COP1X))) {
+    if (unlikely(~ctx->hflags & MIPS_HFLAG_F64)) {
         gen_reserved_instruction(ctx);
     }
 }
@@ -12082,12 +12082,13 @@ static void gen_cache_operation(DisasContext *ctx, uint32_t op, int base,
     tcg_temp_free_i32(t0);
 }
 
-static inline bool is_uhi(int sdbbp_code)
+static inline bool is_uhi(DisasContext *ctx, int sdbbp_code)
 {
 #ifdef CONFIG_USER_ONLY
     return false;
 #else
-    return semihosting_enabled() && sdbbp_code == 1;
+    bool is_user = (ctx->hflags & MIPS_HFLAG_KSU) == MIPS_HFLAG_UM;
+    return semihosting_enabled(is_user) && sdbbp_code == 1;
 #endif
 }
 
@@ -12172,12 +12173,16 @@ enum {
 #include "nanomips_translate.c.inc"
 
 /* MIPSDSP functions. */
-static void gen_mipsdsp_ld(DisasContext *ctx, uint32_t opc,
-                           int rd, int base, int offset)
+
+/* Indexed load is not for DSP only */
+static void gen_mips_lx(DisasContext *ctx, uint32_t opc,
+                        int rd, int base, int offset)
 {
     TCGv t0;
 
-    check_dsp(ctx);
+    if (!(ctx->insn_flags & INSN_OCTEON)) {
+        check_dsp(ctx);
+    }
     t0 = tcg_temp_new();
 
     if (base == 0) {
@@ -13898,7 +13903,7 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case R6_OPC_SDBBP:
-        if (is_uhi(extract32(ctx->opcode, 6, 20))) {
+        if (is_uhi(ctx, extract32(ctx->opcode, 6, 20))) {
             ctx->base.is_jmp = DISAS_SEMIHOST;
         } else {
             if (ctx->hflags & MIPS_HFLAG_SBRI) {
@@ -14310,7 +14315,7 @@ static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
         gen_cl(ctx, op1, rd, rs);
         break;
     case OPC_SDBBP:
-        if (is_uhi(extract32(ctx->opcode, 6, 20))) {
+        if (is_uhi(ctx, extract32(ctx->opcode, 6, 20))) {
             ctx->base.is_jmp = DISAS_SEMIHOST;
         } else {
             /*
@@ -14522,7 +14527,7 @@ static void decode_opc_special3_legacy(CPUMIPSState *env, DisasContext *ctx)
         case OPC_LBUX:
         case OPC_LHX:
         case OPC_LWX:
-            gen_mipsdsp_ld(ctx, op2, rd, rs, rt);
+            gen_mips_lx(ctx, op2, rd, rs, rt);
             break;
         default:            /* Invalid */
             MIPS_INVAL("MASK LX");
@@ -16155,11 +16160,12 @@ static const TranslatorOps mips_tr_ops = {
     .disas_log          = mips_tr_disas_log,
 };
 
-void gen_intermediate_code(CPUState *cs, TranslationBlock *tb, int max_insns)
+void gen_intermediate_code(CPUState *cs, TranslationBlock *tb, int max_insns,
+                           target_ulong pc, void *host_pc)
 {
     DisasContext ctx;
 
-    translator_loop(&mips_tr_ops, &ctx.base, cs, tb, max_insns);
+    translator_loop(cs, tb, max_insns, pc, host_pc, &mips_tr_ops, &ctx.base);
 }
 
 void mips_tcg_init(void)
@@ -16227,9 +16233,13 @@ void mips_tcg_init(void)
     }
 }
 
-void restore_state_to_opc(CPUMIPSState *env, TranslationBlock *tb,
-                          target_ulong *data)
+void mips_restore_state_to_opc(CPUState *cs,
+                               const TranslationBlock *tb,
+                               const uint64_t *data)
 {
+    MIPSCPU *cpu = MIPS_CPU(cs);
+    CPUMIPSState *env = &cpu->env;
+
     env->active_tc.PC = data[0];
     env->hflags &= ~MIPS_HFLAG_BMASK;
     env->hflags |= data[1];

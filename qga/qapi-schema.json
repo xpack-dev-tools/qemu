@@ -16,8 +16,8 @@
 
 { 'pragma': { 'doc-required': true } }
 
-# Whitelists to permit QAPI rule violations; think twice before you
-# add to them!
+# Lists with items allowed to permit QAPI rule violations; think twice
+# before you add to them!
 { 'pragma': {
     # Types whose member names may use '_'
     'member-name-exceptions': [
@@ -392,7 +392,7 @@
 ##
 # @guest-file-flush:
 #
-# Write file changes bufferred in userspace to disk/kernel buffers
+# Write file changes buffered in userspace to disk/kernel buffers
 #
 # @handle: filehandle returned by guest-file-open
 #

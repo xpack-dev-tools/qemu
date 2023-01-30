@@ -24,7 +24,7 @@
  *
  *  ARM Semihosting is documented in:
  *     Semihosting for AArch32 and AArch64 Release 2.0
- *     https://static.docs.arm.com/100863/0200/semihosting.pdf
+ *     https://github.com/ARM-software/abi-aa/blob/main/semihosting/semihosting.rst
  *
  *  RISC-V Semihosting is documented in:
  *     RISC-V Semihosting
@@ -503,7 +503,8 @@ void do_common_semihosting(CPUState *cs)
         GET_ARG(0);
         GET_ARG(1);
         GET_ARG(2);
-        len = asprintf(&s, "/tmp/qemu-%x%02x", getpid(), (int)arg1 & 0xff);
+        len = asprintf(&s, "%s/qemu-%x%02x", g_get_tmp_dir(),
+                       getpid(), (int)arg1 & 0xff);
         if (len < 0) {
             common_semi_set_ret(cs, -1);
             break;

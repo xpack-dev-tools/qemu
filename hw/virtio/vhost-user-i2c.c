@@ -16,6 +16,7 @@
 
 static const int feature_bits[] = {
     VIRTIO_I2C_F_ZERO_LENGTH_REQUEST,
+    VIRTIO_F_RING_RESET,
     VHOST_INVALID_FEATURE_BIT
 };
 
@@ -45,7 +46,7 @@ static void vu_i2c_start(VirtIODevice *vdev)
 
     i2c->vhost_dev.acked_features = vdev->guest_features;
 
-    ret = vhost_dev_start(&i2c->vhost_dev, vdev);
+    ret = vhost_dev_start(&i2c->vhost_dev, vdev, true);
     if (ret < 0) {
         error_report("Error starting vhost-user-i2c: %d", -ret);
         goto err_guest_notifiers;
@@ -79,7 +80,7 @@ static void vu_i2c_stop(VirtIODevice *vdev)
         return;
     }
 
-    vhost_dev_stop(&i2c->vhost_dev, vdev);
+    vhost_dev_stop(&i2c->vhost_dev, vdev, true);
 
     ret = k->set_guest_notifiers(qbus->parent, i2c->vhost_dev.nvqs, false);
     if (ret < 0) {
@@ -93,13 +94,9 @@ static void vu_i2c_stop(VirtIODevice *vdev)
 static void vu_i2c_set_status(VirtIODevice *vdev, uint8_t status)
 {
     VHostUserI2C *i2c = VHOST_USER_I2C(vdev);
-    bool should_start = status & VIRTIO_CONFIG_S_DRIVER_OK;
+    bool should_start = virtio_device_should_start(vdev, status);
 
-    if (!vdev->vm_running) {
-        should_start = false;
-    }
-
-    if (i2c->vhost_dev.started == should_start) {
+    if (vhost_dev_is_started(&i2c->vhost_dev) == should_start) {
         return;
     }
 
@@ -178,7 +175,7 @@ static void vu_i2c_disconnect(DeviceState *dev)
     }
     i2c->connected = false;
 
-    if (i2c->vhost_dev.started) {
+    if (vhost_dev_is_started(&i2c->vhost_dev)) {
         vu_i2c_stop(vdev);
     }
 }

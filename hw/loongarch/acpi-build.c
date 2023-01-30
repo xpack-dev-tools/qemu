@@ -30,6 +30,10 @@
 #include "qom/qom-qobject.h"
 
 #include "hw/acpi/generic_event_device.h"
+#include "hw/pci-host/gpex.h"
+#include "sysemu/tpm.h"
+#include "hw/platform-bus.h"
+#include "hw/acpi/aml-build.h"
 
 #define ACPI_BUILD_ALIGN_SIZE             0x1000
 #define ACPI_BUILD_TABLE_SIZE             0x20000
@@ -186,6 +190,12 @@ build_srat(GArray *table_data, BIOSLinker *linker, MachineState *machine)
     build_srat_memory(table_data, VIRT_HIGHMEM_BASE, machine->ram_size - VIRT_LOWMEM_SIZE,
                       0, MEM_AFFINITY_ENABLED);
 
+    if (ms->device_memory) {
+        build_srat_memory(table_data, ms->device_memory->base,
+                          memory_region_size(&ms->device_memory->mr),
+                          0, MEM_AFFINITY_HOTPLUGGABLE | MEM_AFFINITY_ENABLED);
+    }
+
     acpi_table_end(linker, &table);
 }
 
@@ -199,108 +209,6 @@ struct AcpiBuildState {
     MemoryRegion *rsdp_mr;
     MemoryRegion *linker_mr;
 } AcpiBuildState;
-
-static void build_gpex_pci0_int(Aml *table)
-{
-    Aml *sb_scope = aml_scope("_SB");
-    Aml *pci0_scope = aml_scope("PCI0");
-    Aml *prt_pkg = aml_varpackage(128);
-    int slot, pin;
-
-    for (slot = 0; slot < PCI_SLOT_MAX; slot++) {
-        for (pin = 0; pin < PCI_NUM_PINS; pin++) {
-            Aml *pkg = aml_package(4);
-            aml_append(pkg, aml_int((slot << 16) | 0xFFFF));
-            aml_append(pkg, aml_int(pin));
-            aml_append(pkg, aml_int(0));
-            aml_append(pkg, aml_int(80 + (slot + pin) % 4));
-            aml_append(prt_pkg, pkg);
-        }
-    }
-    aml_append(pci0_scope, aml_name_decl("_PRT", prt_pkg));
-    aml_append(sb_scope, pci0_scope);
-    aml_append(table, sb_scope);
-}
-
-static void build_dbg_aml(Aml *table)
-{
-    Aml *field;
-    Aml *method;
-    Aml *while_ctx;
-    Aml *scope = aml_scope("\\");
-    Aml *buf = aml_local(0);
-    Aml *len = aml_local(1);
-    Aml *idx = aml_local(2);
-
-    aml_append(scope,
-       aml_operation_region("DBG", AML_SYSTEM_IO, aml_int(0x0402), 0x01));
-    field = aml_field("DBG", AML_BYTE_ACC, AML_NOLOCK, AML_PRESERVE);
-    aml_append(field, aml_named_field("DBGB", 8));
-    aml_append(scope, field);
-
-    method = aml_method("DBUG", 1, AML_NOTSERIALIZED);
-
-    aml_append(method, aml_to_hexstring(aml_arg(0), buf));
-    aml_append(method, aml_to_buffer(buf, buf));
-    aml_append(method, aml_subtract(aml_sizeof(buf), aml_int(1), len));
-    aml_append(method, aml_store(aml_int(0), idx));
-
-    while_ctx = aml_while(aml_lless(idx, len));
-    aml_append(while_ctx,
-        aml_store(aml_derefof(aml_index(buf, idx)), aml_name("DBGB")));
-    aml_append(while_ctx, aml_increment(idx));
-    aml_append(method, while_ctx);
-    aml_append(method, aml_store(aml_int(0x0A), aml_name("DBGB")));
-    aml_append(scope, method);
-    aml_append(table, scope);
-}
-
-static Aml *build_osc_method(void)
-{
-    Aml *if_ctx;
-    Aml *if_ctx2;
-    Aml *else_ctx;
-    Aml *method;
-    Aml *a_cwd1 = aml_name("CDW1");
-    Aml *a_ctrl = aml_local(0);
-
-    method = aml_method("_OSC", 4, AML_NOTSERIALIZED);
-    aml_append(method, aml_create_dword_field(aml_arg(3), aml_int(0), "CDW1"));
-
-    if_ctx = aml_if(aml_equal(
-        aml_arg(0), aml_touuid("33DB4D5B-1FF7-401C-9657-7441C03DD766")));
-    aml_append(if_ctx, aml_create_dword_field(aml_arg(3), aml_int(4), "CDW2"));
-    aml_append(if_ctx, aml_create_dword_field(aml_arg(3), aml_int(8), "CDW3"));
-    aml_append(if_ctx, aml_store(aml_name("CDW3"), a_ctrl));
-
-    /*
-     * Always allow native PME, AER (no dependencies)
-     * Allow SHPC (PCI bridges can have SHPC controller)
-     */
-    aml_append(if_ctx, aml_and(a_ctrl, aml_int(0x1F), a_ctrl));
-
-    if_ctx2 = aml_if(aml_lnot(aml_equal(aml_arg(1), aml_int(1))));
-    /* Unknown revision */
-    aml_append(if_ctx2, aml_or(a_cwd1, aml_int(0x08), a_cwd1));
-    aml_append(if_ctx, if_ctx2);
-
-    if_ctx2 = aml_if(aml_lnot(aml_equal(aml_name("CDW3"), a_ctrl)));
-    /* Capabilities bits were masked */
-    aml_append(if_ctx2, aml_or(a_cwd1, aml_int(0x10), a_cwd1));
-    aml_append(if_ctx, if_ctx2);
-
-    /* Update DWORD3 in the buffer */
-    aml_append(if_ctx, aml_store(a_ctrl, aml_name("CDW3")));
-    aml_append(method, if_ctx);
-
-    else_ctx = aml_else();
-    /* Unrecognized UUID */
-    aml_append(else_ctx, aml_or(a_cwd1, aml_int(4), a_cwd1));
-    aml_append(method, else_ctx);
-
-    aml_append(method, aml_return(aml_arg(3)));
-    return method;
-}
 
 static void build_uart_device_aml(Aml *table)
 {
@@ -318,7 +226,8 @@ static void build_uart_device_aml(Aml *table)
     aml_append(crs,
         aml_qword_memory(AML_POS_DECODE, AML_MIN_FIXED, AML_MAX_FIXED,
                          AML_NON_CACHEABLE, AML_READ_WRITE,
-                         0, 0x1FE001E0, 0x1FE001E7, 0, 0x8));
+                         0, VIRT_UART_BASE, VIRT_UART_BASE + VIRT_UART_SIZE - 1,
+                         0, VIRT_UART_SIZE));
     aml_append(crs, aml_interrupt(AML_CONSUMER, AML_LEVEL, AML_ACTIVE_HIGH,
                                   AML_SHARED, &uart_irq, 1));
     aml_append(dev, aml_name_decl("_CRS", crs));
@@ -335,62 +244,93 @@ static void build_uart_device_aml(Aml *table)
     aml_append(table, scope);
 }
 
+static void
+build_la_ged_aml(Aml *dsdt, MachineState *machine)
+{
+    uint32_t event;
+    LoongArchMachineState *lams = LOONGARCH_MACHINE(machine);
+
+    build_ged_aml(dsdt, "\\_SB."GED_DEVICE,
+                  HOTPLUG_HANDLER(lams->acpi_ged),
+                  VIRT_SCI_IRQ, AML_SYSTEM_MEMORY,
+                  VIRT_GED_EVT_ADDR);
+    event = object_property_get_uint(OBJECT(lams->acpi_ged),
+                                     "ged-event", &error_abort);
+    if (event & ACPI_GED_MEM_HOTPLUG_EVT) {
+        build_memory_hotplug_aml(dsdt, machine->ram_slots, "\\_SB", NULL,
+                                 AML_SYSTEM_MEMORY,
+                                 VIRT_GED_MEM_ADDR);
+    }
+}
+
+static void build_pci_device_aml(Aml *scope, LoongArchMachineState *lams)
+{
+    struct GPEXConfig cfg = {
+        .mmio64.base = VIRT_PCI_MEM_BASE,
+        .mmio64.size = VIRT_PCI_MEM_SIZE,
+        .pio.base    = VIRT_PCI_IO_BASE,
+        .pio.size    = VIRT_PCI_IO_SIZE,
+        .ecam.base   = VIRT_PCI_CFG_BASE,
+        .ecam.size   = VIRT_PCI_CFG_SIZE,
+        .irq         = PCH_PIC_IRQ_OFFSET + VIRT_DEVICE_IRQS,
+        .bus         = lams->pci_bus,
+    };
+
+    acpi_dsdt_add_gpex(scope, &cfg);
+}
+
+#ifdef CONFIG_TPM
+static void acpi_dsdt_add_tpm(Aml *scope, LoongArchMachineState *vms)
+{
+    PlatformBusDevice *pbus = PLATFORM_BUS_DEVICE(vms->platform_bus_dev);
+    hwaddr pbus_base = VIRT_PLATFORM_BUS_BASEADDRESS;
+    SysBusDevice *sbdev = SYS_BUS_DEVICE(tpm_find());
+    MemoryRegion *sbdev_mr;
+    hwaddr tpm_base;
+
+    if (!sbdev) {
+        return;
+    }
+
+    tpm_base = platform_bus_get_mmio_addr(pbus, sbdev, 0);
+    assert(tpm_base != -1);
+
+    tpm_base += pbus_base;
+
+    sbdev_mr = sysbus_mmio_get_region(sbdev, 0);
+
+    Aml *dev = aml_device("TPM0");
+    aml_append(dev, aml_name_decl("_HID", aml_string("MSFT0101")));
+    aml_append(dev, aml_name_decl("_STR", aml_string("TPM 2.0 Device")));
+    aml_append(dev, aml_name_decl("_UID", aml_int(0)));
+
+    Aml *crs = aml_resource_template();
+    aml_append(crs,
+               aml_memory32_fixed(tpm_base,
+                                  (uint32_t)memory_region_size(sbdev_mr),
+                                  AML_READ_WRITE));
+    aml_append(dev, aml_name_decl("_CRS", crs));
+    aml_append(scope, dev);
+}
+#endif
+
 /* build DSDT */
 static void
 build_dsdt(GArray *table_data, BIOSLinker *linker, MachineState *machine)
 {
-    Aml *dsdt, *sb_scope, *scope, *dev, *crs, *pkg;
-    int root_bus_limit = 0x7F;
+    Aml *dsdt, *scope, *pkg;
     LoongArchMachineState *lams = LOONGARCH_MACHINE(machine);
     AcpiTable table = { .sig = "DSDT", .rev = 1, .oem_id = lams->oem_id,
                         .oem_table_id = lams->oem_table_id };
 
     acpi_table_begin(&table, table_data);
-
     dsdt = init_aml_allocator();
-
-    build_dbg_aml(dsdt);
-
-    sb_scope = aml_scope("_SB");
-    dev = aml_device("PCI0");
-    aml_append(dev, aml_name_decl("_HID", aml_eisaid("PNP0A08")));
-    aml_append(dev, aml_name_decl("_CID", aml_eisaid("PNP0A03")));
-    aml_append(dev, aml_name_decl("_ADR", aml_int(0)));
-    aml_append(dev, aml_name_decl("_BBN", aml_int(0)));
-    aml_append(dev, aml_name_decl("_UID", aml_int(1)));
-    aml_append(dev, build_osc_method());
-    aml_append(sb_scope, dev);
-    aml_append(dsdt, sb_scope);
-
-    build_gpex_pci0_int(dsdt);
     build_uart_device_aml(dsdt);
-    if (lams->acpi_ged) {
-        build_ged_aml(dsdt, "\\_SB."GED_DEVICE,
-                      HOTPLUG_HANDLER(lams->acpi_ged),
-                      VIRT_SCI_IRQ - PCH_PIC_IRQ_OFFSET, AML_SYSTEM_MEMORY,
-                      VIRT_GED_EVT_ADDR);
-    }
-
-    scope = aml_scope("\\_SB.PCI0");
-    /* Build PCI0._CRS */
-    crs = aml_resource_template();
-    aml_append(crs,
-        aml_word_bus_number(AML_MIN_FIXED, AML_MAX_FIXED, AML_POS_DECODE,
-                            0x0000, 0x0, root_bus_limit,
-                            0x0000, root_bus_limit + 1));
-    aml_append(crs,
-        aml_dword_io(AML_MIN_FIXED, AML_MAX_FIXED,
-                    AML_POS_DECODE, AML_ENTIRE_RANGE,
-                    0x0000, 0x0000, 0xFFFF, 0x18000000, 0x10000));
-    aml_append(crs,
-        aml_dword_memory(AML_POS_DECODE, AML_MIN_FIXED, AML_MAX_FIXED,
-                         AML_CACHEABLE, AML_READ_WRITE,
-                         0, VIRT_PCI_MEM_BASE,
-                         VIRT_PCI_MEM_BASE + VIRT_PCI_MEM_SIZE - 1,
-                         0, VIRT_PCI_MEM_BASE));
-    aml_append(scope, aml_name_decl("_CRS", crs));
-    aml_append(dsdt, scope);
-
+    build_pci_device_aml(dsdt, lams);
+    build_la_ged_aml(dsdt, machine);
+#ifdef CONFIG_TPM
+    acpi_dsdt_add_tpm(dsdt, lams);
+#endif
     /* System State Package */
     scope = aml_scope("\\");
     pkg = aml_package(4);
@@ -460,6 +400,15 @@ static void acpi_build(AcpiBuildTables *tables, MachineState *machine)
                    lams->oem_table_id);
     }
 
+#ifdef CONFIG_TPM
+    /* TPM info */
+    if (tpm_get_version(tpm_find()) == TPM_VERSION_2_0) {
+        acpi_add_table(table_offsets, tables_blob);
+        build_tpm2(tables_blob, tables->linker,
+                   tables->tcpalog, lams->oem_id,
+                   lams->oem_table_id);
+    }
+#endif
     /* Add tables supplied by user (if any) */
     for (u = acpi_table_first(); u; u = acpi_table_next(u)) {
         unsigned len = acpi_table_len(u);

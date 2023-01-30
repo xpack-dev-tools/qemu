@@ -156,7 +156,7 @@ void arm_cpu_do_unaligned_access(CPUState *cs, vaddr vaddr,
     ARMMMUFaultInfo fi = {};
 
     /* now we have a real cpu fault */
-    cpu_restore_state(cs, retaddr, true);
+    cpu_restore_state(cs, retaddr);
 
     fi.type = ARMFault_Alignment;
     arm_deliver_fault(cpu, vaddr, access_type, mmu_idx, &fi);
@@ -196,7 +196,7 @@ void arm_cpu_do_transaction_failed(CPUState *cs, hwaddr physaddr,
     ARMMMUFaultInfo fi = {};
 
     /* now we have a real cpu fault */
-    cpu_restore_state(cs, retaddr, true);
+    cpu_restore_state(cs, retaddr);
 
     fi.ea = arm_extabort_type(response);
     fi.type = ARMFault_SyncExternal;
@@ -208,12 +208,20 @@ bool arm_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
                       bool probe, uintptr_t retaddr)
 {
     ARMCPU *cpu = ARM_CPU(cs);
-    ARMMMUFaultInfo fi = {};
-    hwaddr phys_addr;
-    target_ulong page_size;
-    int prot, ret;
-    MemTxAttrs attrs = {};
-    ARMCacheAttrs cacheattrs = {};
+    GetPhysAddrResult res = {};
+    ARMMMUFaultInfo local_fi, *fi;
+    int ret;
+
+    /*
+     * Allow S1_ptw_translate to see any fault generated here.
+     * Since this may recurse, read and clear.
+     */
+    fi = cpu->env.tlb_fi;
+    if (fi) {
+        cpu->env.tlb_fi = NULL;
+    } else {
+        fi = memset(&local_fi, 0, sizeof(local_fi));
+    }
 
     /*
      * Walk the page table and (if the mapping exists) add the page
@@ -223,32 +231,29 @@ bool arm_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
      */
     ret = get_phys_addr(&cpu->env, address, access_type,
                         core_to_arm_mmu_idx(&cpu->env, mmu_idx),
-                        &phys_addr, &attrs, &prot, &page_size,
-                        &fi, &cacheattrs);
+                        &res, fi);
     if (likely(!ret)) {
         /*
          * Map a single [sub]page. Regions smaller than our declared
          * target page size are handled specially, so for those we
          * pass in the exact addresses.
          */
-        if (page_size >= TARGET_PAGE_SIZE) {
-            phys_addr &= TARGET_PAGE_MASK;
+        if (res.f.lg_page_size >= TARGET_PAGE_BITS) {
+            res.f.phys_addr &= TARGET_PAGE_MASK;
             address &= TARGET_PAGE_MASK;
         }
-        /* Notice and record tagged memory. */
-        if (cpu_isar_feature(aa64_mte, cpu) && cacheattrs.attrs == 0xf0) {
-            arm_tlb_mte_tagged(&attrs) = true;
-        }
 
-        tlb_set_page_with_attrs(cs, address, phys_addr, attrs,
-                                prot, mmu_idx, page_size);
+        res.f.pte_attrs = res.cacheattrs.attrs;
+        res.f.shareability = res.cacheattrs.shareability;
+
+        tlb_set_page_full(cs, mmu_idx, address, &res.f);
         return true;
     } else if (probe) {
         return false;
     } else {
         /* now we have a real cpu fault */
-        cpu_restore_state(cs, retaddr, true);
-        arm_deliver_fault(cpu, address, access_type, mmu_idx, &fi);
+        cpu_restore_state(cs, retaddr);
+        arm_deliver_fault(cpu, address, access_type, mmu_idx, fi);
     }
 }
 #else
@@ -266,7 +271,7 @@ void arm_cpu_record_sigsegv(CPUState *cs, vaddr addr,
      * We report both ESR and FAR to signal handlers.
      * For now, it's easiest to deliver the fault normally.
      */
-    cpu_restore_state(cs, ra, true);
+    cpu_restore_state(cs, ra);
     arm_deliver_fault(cpu, addr, access_type, MMU_USER_IDX, &fi);
 }
 
