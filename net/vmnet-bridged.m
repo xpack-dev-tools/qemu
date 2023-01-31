@@ -17,7 +17,8 @@
 #include <vmnet/vmnet.h>
 
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_15
+#if defined(MAC_OS_X_VERSION_10_15) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
 static bool validate_ifname(const char *ifname)
 {
     xpc_object_t shared_if_list = vmnet_copy_shared_interface_list();
@@ -72,7 +73,8 @@ static bool validate_options(const Netdev *netdev, Error **errp)
 {
     const NetdevVmnetBridgedOptions *options = &(netdev->u.vmnet_bridged);
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_15
+#if defined(MAC_OS_X_VERSION_10_15) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
     char* if_list;
 
     if (!validate_ifname(options->ifname)) {
@@ -110,14 +112,16 @@ static bool validate_options(const Netdev *netdev, Error **errp)
 static xpc_object_t build_if_desc(const Netdev *netdev)
 {
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_15
+#if defined(MAC_OS_X_VERSION_10_15) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
     const NetdevVmnetBridgedOptions *options = &(netdev->u.vmnet_bridged);
 #endif
 // xPack
     xpc_object_t if_desc = xpc_dictionary_create(NULL, NULL, 0);
 
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_15
+#if defined(MAC_OS_X_VERSION_10_15) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
     xpc_dictionary_set_uint64(if_desc,
                               vmnet_operation_mode_key,
                               VMNET_BRIDGED_MODE

@@ -106,7 +106,8 @@ static NSTextField *pauseLabel;
 static bool allow_events;
 
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
+#if defined(MAC_OS_X_VERSION_10_13) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
 static NSInteger cbchangecount = -1;
 static QemuClipboardInfo *cbinfo;
 static QemuEvent cbevent;
@@ -1804,7 +1805,8 @@ static void addRemovableDevicesMenuItems(void)
 }
 
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
+#if defined(MAC_OS_X_VERSION_10_13) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
 @interface QemuCocoaPasteboardTypeOwner : NSObject<NSPasteboardTypeOwner>
 @end
 
@@ -1931,7 +1933,8 @@ static void *call_qemu_main(void *opaque)
     qemu_mutex_unlock_iothread();
     COCOA_DEBUG("Second thread: qemu_default_main() returned, exiting\n");
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
+#if defined(MAC_OS_X_VERSION_10_13) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
     [cbowner release];
 #endif
 // xPack
@@ -2017,7 +2020,8 @@ static void cocoa_refresh(DisplayChangeListener *dcl)
     }
 
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
+#if defined(MAC_OS_X_VERSION_10_13) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
     if (cbchangecount != [[NSPasteboard generalPasteboard] changeCount]) {
         qemu_clipboard_info_unref(cbinfo);
         cbinfo = qemu_clipboard_info_new(&cbpeer, QEMU_CLIPBOARD_SELECTION_CLIPBOARD);
@@ -2088,7 +2092,8 @@ static void cocoa_display_init(DisplayState *ds, DisplayOptions *opts)
     // register vga output callbacks
     register_displaychangelistener(&dcl);
 // xPack
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
+#if defined(MAC_OS_X_VERSION_10_13) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_13
     qemu_event_init(&cbevent, false);
     cbowner = [[QemuCocoaPasteboardTypeOwner alloc] init];
     qemu_clipboard_peer_register(&cbpeer);
