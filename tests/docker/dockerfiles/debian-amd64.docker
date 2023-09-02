@@ -28,7 +28,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
                       g++ \
                       gcc \
                       gcovr \
-                      genisoimage \
                       gettext \
                       git \
                       hostname \
@@ -70,6 +69,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
                       libnuma-dev \
                       libpam0g-dev \
                       libpcre2-dev \
+                      libpipewire-0.3-dev \
                       libpixman-1-dev \
                       libpmem-dev \
                       libpng-dev \
@@ -103,12 +103,12 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
                       locales \
                       make \
                       meson \
+                      mtools \
                       multipath-tools \
                       ncat \
                       nettle-dev \
                       ninja-build \
                       openssh-client \
-                      perl-base \
                       pkgconf \
                       python3 \
                       python3-numpy \
@@ -121,14 +121,16 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
                       python3-yaml \
                       rpm2cpio \
                       sed \
+                      socat \
                       sparse \
                       systemtap-sdt-dev \
                       tar \
                       tesseract-ocr \
                       tesseract-ocr-eng \
-                      texinfo \
                       xfslibs-dev \
-                      zlib1g-dev && \
+                      xorriso \
+                      zlib1g-dev \
+                      zstd && \
     eatmydata apt-get autoremove -y && \
     eatmydata apt-get autoclean -y && \
     sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen && \
@@ -156,3 +158,8 @@ RUN git clone https://github.com/luigirizzo/netmap.git /usr/src/netmap
 RUN cd /usr/src/netmap && git checkout v11.3
 RUN cd /usr/src/netmap/LINUX && ./configure --no-drivers --no-apps --kernel-dir=$(ls -d /usr/src/linux-headers-*-amd64) && make install
 ENV QEMU_CONFIGURE_OPTS --enable-netmap
+# As a final step configure the user (if env is defined)
+ARG USER
+ARG UID
+RUN if [ "${USER}" ]; then \
+  id ${USER} 2>/dev/null || useradd -u ${UID} -U ${USER}; fi

@@ -245,23 +245,31 @@
 #define smp_wmb()   smp_mb_release()
 #define smp_rmb()   smp_mb_acquire()
 
-/* qatomic_mb_read/set semantics map Java volatile variables. They are
- * less expensive on some platforms (notably POWER) than fully
- * sequentially consistent operations.
- *
- * As long as they are used as paired operations they are safe to
- * use. See docs/devel/atomics.rst for more discussion.
+/*
+ * SEQ_CST is weaker than the older __sync_* builtins and Linux
+ * kernel read-modify-write atomics.  Provide a macro to obtain
+ * the same semantics.
  */
+#if !defined(QEMU_SANITIZE_THREAD) && \
+    (defined(__i386__) || defined(__x86_64__) || defined(__s390x__))
+# define smp_mb__before_rmw() signal_barrier()
+# define smp_mb__after_rmw() signal_barrier()
+#else
+# define smp_mb__before_rmw() smp_mb()
+# define smp_mb__after_rmw() smp_mb()
+#endif
 
-#define qatomic_mb_read(ptr)                             \
-    qatomic_load_acquire(ptr)
+/*
+ * On some architectures, qatomic_set_mb is more efficient than a store
+ * plus a fence.
+ */
 
 #if !defined(QEMU_SANITIZE_THREAD) && \
     (defined(__i386__) || defined(__x86_64__) || defined(__s390x__))
-/* This is more efficient than a store plus a fence.  */
-# define qatomic_mb_set(ptr, i)  ((void)qatomic_xchg(ptr, i))
+# define qatomic_set_mb(ptr, i) \
+    ({ (void)qatomic_xchg(ptr, i); smp_mb__after_rmw(); })
 #else
-# define qatomic_mb_set(ptr, i) \
+# define qatomic_set_mb(ptr, i) \
    ({ qatomic_store_release(ptr, i); smp_mb(); })
 #endif
 

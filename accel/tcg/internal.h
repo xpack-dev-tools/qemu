@@ -10,6 +10,7 @@
 #define ACCEL_TCG_INTERNAL_H
 
 #include "exec/exec-all.h"
+#include "exec/translate-all.h"
 
 /*
  * Access to the various translations structures need to be serialised
@@ -17,106 +18,124 @@
  * memory related structures are protected with mmap_lock.
  * In !user-mode we use per-page locks.
  */
-#ifdef CONFIG_SOFTMMU
-#define assert_memory_lock()
-#else
+#ifdef CONFIG_USER_ONLY
 #define assert_memory_lock() tcg_debug_assert(have_mmap_lock())
-#endif
-
-typedef struct PageDesc {
-    /* list of TBs intersecting this ram page */
-    uintptr_t first_tb;
-#ifdef CONFIG_USER_ONLY
-    unsigned long flags;
-    void *target_data;
-#endif
-#ifdef CONFIG_SOFTMMU
-    QemuSpin lock;
-#endif
-} PageDesc;
-
-/* Size of the L2 (and L3, etc) page tables.  */
-#define V_L2_BITS 10
-#define V_L2_SIZE (1 << V_L2_BITS)
-
-/*
- * L1 Mapping properties
- */
-extern int v_l1_size;
-extern int v_l1_shift;
-extern int v_l2_levels;
-
-/*
- * The bottom level has pointers to PageDesc, and is indexed by
- * anything from 4 to (V_L2_BITS + 3) bits, depending on target page size.
- */
-#define V_L1_MIN_BITS 4
-#define V_L1_MAX_BITS (V_L2_BITS + 3)
-#define V_L1_MAX_SIZE (1 << V_L1_MAX_BITS)
-
-extern void *l1_map[V_L1_MAX_SIZE];
-
-PageDesc *page_find_alloc(tb_page_addr_t index, bool alloc);
-
-static inline PageDesc *page_find(tb_page_addr_t index)
-{
-    return page_find_alloc(index, false);
-}
-
-/* list iterators for lists of tagged pointers in TranslationBlock */
-#define TB_FOR_EACH_TAGGED(head, tb, n, field)                          \
-    for (n = (head) & 1, tb = (TranslationBlock *)((head) & ~1);        \
-         tb; tb = (TranslationBlock *)tb->field[n], n = (uintptr_t)tb & 1, \
-             tb = (TranslationBlock *)((uintptr_t)tb & ~1))
-
-#define PAGE_FOR_EACH_TB(pagedesc, tb, n)                       \
-    TB_FOR_EACH_TAGGED((pagedesc)->first_tb, tb, n, page_next)
-
-#define TB_FOR_EACH_JMP(head_tb, tb, n)                                 \
-    TB_FOR_EACH_TAGGED((head_tb)->jmp_list_head, tb, n, jmp_list_next)
-
-/* In user-mode page locks aren't used; mmap_lock is enough */
-#ifdef CONFIG_USER_ONLY
-#define assert_page_locked(pd) tcg_debug_assert(have_mmap_lock())
-static inline void page_lock(PageDesc *pd) { }
-static inline void page_unlock(PageDesc *pd) { }
 #else
-#ifdef CONFIG_DEBUG_TCG
-void do_assert_page_locked(const PageDesc *pd, const char *file, int line);
-#define assert_page_locked(pd) do_assert_page_locked(pd, __FILE__, __LINE__)
-#else
-#define assert_page_locked(pd)
+#define assert_memory_lock()
 #endif
-void page_lock(PageDesc *pd);
-void page_unlock(PageDesc *pd);
-#endif
-#if !defined(CONFIG_USER_ONLY) && defined(CONFIG_DEBUG_TCG)
+
+#if defined(CONFIG_SOFTMMU) && defined(CONFIG_DEBUG_TCG)
 void assert_no_pages_locked(void);
 #else
 static inline void assert_no_pages_locked(void) { }
 #endif
 
-TranslationBlock *tb_gen_code(CPUState *cpu, target_ulong pc,
-                              target_ulong cs_base, uint32_t flags,
-                              int cflags);
+#ifdef CONFIG_USER_ONLY
+static inline void page_table_config_init(void) { }
+#else
+void page_table_config_init(void);
+#endif
+
+#ifdef CONFIG_USER_ONLY
+/*
+ * For user-only, page_protect sets the page read-only.
+ * Since most execution is already on read-only pages, and we'd need to
+ * account for other TBs on the same page, defer undoing any page protection
+ * until we receive the write fault.
+ */
+static inline void tb_lock_page0(tb_page_addr_t p0)
+{
+    page_protect(p0);
+}
+
+static inline void tb_lock_page1(tb_page_addr_t p0, tb_page_addr_t p1)
+{
+    page_protect(p1);
+}
+
+static inline void tb_unlock_page1(tb_page_addr_t p0, tb_page_addr_t p1) { }
+static inline void tb_unlock_pages(TranslationBlock *tb) { }
+#else
+void tb_lock_page0(tb_page_addr_t);
+void tb_lock_page1(tb_page_addr_t, tb_page_addr_t);
+void tb_unlock_page1(tb_page_addr_t, tb_page_addr_t);
+void tb_unlock_pages(TranslationBlock *);
+#endif
+
+#ifdef CONFIG_SOFTMMU
+void tb_invalidate_phys_range_fast(ram_addr_t ram_addr,
+                                   unsigned size,
+                                   uintptr_t retaddr);
 G_NORETURN void cpu_io_recompile(CPUState *cpu, uintptr_t retaddr);
+#endif /* CONFIG_SOFTMMU */
+
+TranslationBlock *tb_gen_code(CPUState *cpu, vaddr pc,
+                              uint64_t cs_base, uint32_t flags,
+                              int cflags);
 void page_init(void);
 void tb_htable_init(void);
 void tb_reset_jump(TranslationBlock *tb, int n);
-TranslationBlock *tb_link_page(TranslationBlock *tb, tb_page_addr_t phys_pc,
-                               tb_page_addr_t phys_page2);
+TranslationBlock *tb_link_page(TranslationBlock *tb);
 bool tb_invalidate_phys_page_unwind(tb_page_addr_t addr, uintptr_t pc);
 void cpu_restore_state_from_tb(CPUState *cpu, TranslationBlock *tb,
                                uintptr_t host_pc);
 
 /* Return the current PC from CPU, which may be cached in TB. */
-static inline target_ulong log_pc(CPUState *cpu, const TranslationBlock *tb)
+static inline vaddr log_pc(CPUState *cpu, const TranslationBlock *tb)
 {
-#if TARGET_TB_PCREL
-    return cpu->cc->get_pc(cpu);
-#else
-    return tb_pc(tb);
-#endif
+    if (tb_cflags(tb) & CF_PCREL) {
+        return cpu->cc->get_pc(cpu);
+    } else {
+        return tb->pc;
+    }
 }
+
+/*
+ * Return true if CS is not running in parallel with other cpus, either
+ * because there are no other cpus or we are within an exclusive context.
+ */
+static inline bool cpu_in_serial_context(CPUState *cs)
+{
+    return !(cs->tcg_cflags & CF_PARALLEL) || cpu_in_exclusive_context(cs);
+}
+
+extern int64_t max_delay;
+extern int64_t max_advance;
+
+extern bool one_insn_per_tb;
+
+/**
+ * tcg_req_mo:
+ * @type: TCGBar
+ *
+ * Filter @type to the barrier that is required for the guest
+ * memory ordering vs the host memory ordering.  A non-zero
+ * result indicates that some barrier is required.
+ *
+ * If TCG_GUEST_DEFAULT_MO is not defined, assume that the
+ * guest requires strict ordering.
+ *
+ * This is a macro so that it's constant even without optimization.
+ */
+#ifdef TCG_GUEST_DEFAULT_MO
+# define tcg_req_mo(type) \
+    ((type) & TCG_GUEST_DEFAULT_MO & ~TCG_TARGET_DEFAULT_MO)
+#else
+# define tcg_req_mo(type) ((type) & ~TCG_TARGET_DEFAULT_MO)
+#endif
+
+/**
+ * cpu_req_mo:
+ * @type: TCGBar
+ *
+ * If tcg_req_mo indicates a barrier for @type is required
+ * for the guest memory model, issue a host memory barrier.
+ */
+#define cpu_req_mo(type)          \
+    do {                          \
+        if (tcg_req_mo(type)) {   \
+            smp_mb();             \
+        }                         \
+    } while (0)
 
 #endif /* ACCEL_TCG_INTERNAL_H */

@@ -24,6 +24,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "block/aio-wait.h"
 #include "block/block.h"
 #include "block/blockjob_int.h"
 #include "block/block_int.h"
@@ -32,7 +33,6 @@
 #include "qapi/error.h"
 #include "qapi/qapi-events-block-core.h"
 #include "qapi/qmp/qerror.h"
-#include "qemu/coroutine.h"
 #include "qemu/main-loop.h"
 #include "qemu/timer.h"
 
@@ -120,7 +120,7 @@ static bool child_job_drained_poll(BdrvChild *c)
     }
 }
 
-static void child_job_drained_end(BdrvChild *c, int *drained_end_counter)
+static void child_job_drained_end(BdrvChild *c)
 {
     BlockJob *job = c->opaque;
     job_resume(&job->job);
@@ -230,20 +230,27 @@ int block_job_add_bdrv(BlockJob *job, const char *name, BlockDriverState *bs,
                        uint64_t perm, uint64_t shared_perm, Error **errp)
 {
     BdrvChild *c;
+    AioContext *ctx = bdrv_get_aio_context(bs);
     bool need_context_ops;
     GLOBAL_STATE_CODE();
 
     bdrv_ref(bs);
 
-    need_context_ops = bdrv_get_aio_context(bs) != job->job.aio_context;
+    need_context_ops = ctx != job->job.aio_context;
 
-    if (need_context_ops && job->job.aio_context != qemu_get_aio_context()) {
-        aio_context_release(job->job.aio_context);
+    if (need_context_ops) {
+        if (job->job.aio_context != qemu_get_aio_context()) {
+            aio_context_release(job->job.aio_context);
+        }
+        aio_context_acquire(ctx);
     }
     c = bdrv_root_attach_child(bs, name, &child_job, 0, perm, shared_perm, job,
                                errp);
-    if (need_context_ops && job->job.aio_context != qemu_get_aio_context()) {
-        aio_context_acquire(job->job.aio_context);
+    if (need_context_ops) {
+        aio_context_release(ctx);
+        if (job->job.aio_context != qemu_get_aio_context()) {
+            aio_context_acquire(job->job.aio_context);
+        }
     }
     if (c == NULL) {
         return -EPERM;
@@ -319,10 +326,28 @@ static bool block_job_set_speed(BlockJob *job, int64_t speed, Error **errp)
     return block_job_set_speed_locked(job, speed, errp);
 }
 
-int64_t block_job_ratelimit_get_delay(BlockJob *job, uint64_t n)
+void block_job_ratelimit_processed_bytes(BlockJob *job, uint64_t n)
 {
     IO_CODE();
-    return ratelimit_calculate_delay(&job->limit, n);
+    ratelimit_calculate_delay(&job->limit, n);
+}
+
+void block_job_ratelimit_sleep(BlockJob *job)
+{
+    uint64_t delay_ns;
+
+    /*
+     * Sleep at least once. If the job is reentered early, keep waiting until
+     * we've waited for the full time that is necessary to keep the job at the
+     * right speed.
+     *
+     * Make sure to recalculate the delay after each (possibly interrupted)
+     * sleep because the speed can change while the job has yielded.
+     */
+    do {
+        delay_ns = ratelimit_calculate_delay(&job->limit, 0);
+        job_sleep_ns(&job->job, delay_ns);
+    } while (delay_ns && !job_is_cancelled(&job->job));
 }
 
 BlockJobInfo *block_job_query_locked(BlockJob *job, Error **errp)
@@ -354,7 +379,6 @@ BlockJobInfo *block_job_query_locked(BlockJob *job, Error **errp)
     info->auto_finalize = job->job.auto_finalize;
     info->auto_dismiss  = job->job.auto_dismiss;
     if (job->job.ret) {
-        info->has_error = true;
         info->error = job->job.err ?
                         g_strdup(error_get_pretty(job->job.err)) :
                         g_strdup(strerror(-job->job.ret));
@@ -414,7 +438,6 @@ static void block_job_event_completed_locked(Notifier *n, void *opaque)
                                         progress_total,
                                         progress_current,
                                         job->speed,
-                                        !!msg,
                                         msg);
 }
 

@@ -27,6 +27,7 @@ import shutil
 import multiprocessing
 import traceback
 import shlex
+import json
 
 from qemu.machine import QEMUMachine
 from qemu.utils import get_info_usernet_hostfwd_port, kvm_available
@@ -501,6 +502,16 @@ class BaseVM(object):
                               stderr=self._stdout)
         return os.path.join(cidir, "cloud-init.iso")
 
+    def get_qemu_packages_from_lcitool_json(self, json_path=None):
+        """Parse a lcitool variables json file and return the PKGS list."""
+        if json_path is None:
+            json_path = os.path.join(
+                os.path.dirname(__file__), "generated", self.name + ".json"
+            )
+        with open(json_path, "r") as fh:
+            return json.load(fh)["pkgs"]
+
+
 def get_qemu_path(arch, build_path=None):
     """Fetch the path to the qemu binary."""
     # If QEMU environment variable set, it takes precedence
@@ -569,8 +580,7 @@ def parse_args(vmcls):
                 # more cores. but only up to a reasonable limit. User
                 # can always override these limits with --jobs.
                 return min(multiprocessing.cpu_count() // 2, 8)
-        else:
-            return 1
+        return 1
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,

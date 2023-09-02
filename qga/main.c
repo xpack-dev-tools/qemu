@@ -24,7 +24,6 @@
 #include "qapi/qmp/qjson.h"
 #include "guest-agent-core.h"
 #include "qga-qapi-init-commands.h"
-#include "qapi/qmp/qerror.h"
 #include "qapi/error.h"
 #include "channel.h"
 #include "qemu/cutils.h"
@@ -40,11 +39,11 @@
 #include "commands-common.h"
 
 #ifndef _WIN32
-#ifdef __FreeBSD__
+#ifdef CONFIG_BSD
 #define QGA_VIRTIO_PATH_DEFAULT "/dev/vtcon/org.qemu.guest_agent.0"
-#else /* __FreeBSD__ */
+#else /* CONFIG_BSD */
 #define QGA_VIRTIO_PATH_DEFAULT "/dev/virtio-ports/org.qemu.guest_agent.0"
-#endif /* __FreeBSD__ */
+#endif /* CONFIG_BSD */
 #define QGA_SERIAL_PATH_DEFAULT "/dev/ttyS0"
 #define QGA_STATE_RELATIVE_DIR  "run"
 #else
@@ -83,10 +82,12 @@ struct GAState {
 #ifdef _WIN32
     GAService service;
     HANDLE wakeup_event;
+    HANDLE event_log;
 #endif
     bool delimit_response;
     bool frozen;
     GList *blockedrpcs;
+    GList *allowedrpcs;
     char *state_filepath_isfrozen;
     struct {
         const char *log_filepath;
@@ -261,6 +262,8 @@ QEMU_COPYRIGHT "\n"
 #endif
 "  -b, --block-rpcs  comma-separated list of RPCs to disable (no spaces,\n"
 "                    use \"help\" to list available RPCs)\n"
+"  -a, --allow-rpcs  comma-separated list of RPCs to enable (no spaces,\n"
+"                    use \"help\" to list available RPCs)\n"
 "  -D, --dump-conf   dump a qemu-ga config file based on current config\n"
 "                    options / command-line parameters to stdout\n"
 "  -r, --retry-path  attempt re-opening path if it's unavailable or closed\n"
@@ -313,6 +316,38 @@ void ga_enable_logging(GAState *s)
     s->logging_enabled = true;
 }
 
+static int glib_log_level_to_system(int level)
+{
+    switch (level) {
+#ifndef _WIN32
+    case G_LOG_LEVEL_ERROR:
+        return LOG_ERR;
+    case G_LOG_LEVEL_CRITICAL:
+        return LOG_CRIT;
+    case G_LOG_LEVEL_WARNING:
+        return LOG_WARNING;
+    case G_LOG_LEVEL_MESSAGE:
+        return LOG_NOTICE;
+    case G_LOG_LEVEL_DEBUG:
+        return LOG_DEBUG;
+    case G_LOG_LEVEL_INFO:
+    default:
+        return LOG_INFO;
+#else
+    case G_LOG_LEVEL_ERROR:
+    case G_LOG_LEVEL_CRITICAL:
+        return EVENTLOG_ERROR_TYPE;
+    case G_LOG_LEVEL_WARNING:
+        return EVENTLOG_WARNING_TYPE;
+    case G_LOG_LEVEL_MESSAGE:
+    case G_LOG_LEVEL_INFO:
+    case G_LOG_LEVEL_DEBUG:
+    default:
+        return EVENTLOG_INFORMATION_TYPE;
+#endif
+    }
+}
+
 static void ga_log(const gchar *domain, GLogLevelFlags level,
                    const gchar *msg, gpointer opaque)
 {
@@ -324,13 +359,14 @@ static void ga_log(const gchar *domain, GLogLevelFlags level,
     }
 
     level &= G_LOG_LEVEL_MASK;
-#ifndef _WIN32
     if (g_strcmp0(domain, "syslog") == 0) {
-        syslog(LOG_INFO, "%s: %s", level_str, msg);
-    } else if (level & s->log_level) {
+#ifndef _WIN32
+        syslog(glib_log_level_to_system(level), "%s: %s", level_str, msg);
 #else
-    if (level & s->log_level) {
+        ReportEvent(s->event_log, glib_log_level_to_system(level),
+                    0, 1, NULL, 1, 0, &msg, NULL);
 #endif
+    } else if (level & s->log_level) {
         g_autoptr(GDateTime) now = g_date_time_new_now_utc();
         g_autofree char *nowstr = g_date_time_format(now, "%s.%f");
         fprintf(s->log_file, "%s: %s: %s\n", nowstr, level_str, msg);
@@ -362,7 +398,7 @@ static gint ga_strcmp(gconstpointer str1, gconstpointer str2)
 }
 
 /* disable commands that aren't safe for fsfreeze */
-static void ga_disable_not_allowed(const QmpCommand *cmd, void *opaque)
+static void ga_disable_not_allowed_freeze(const QmpCommand *cmd, void *opaque)
 {
     bool allowed = false;
     int i = 0;
@@ -383,13 +419,35 @@ static void ga_disable_not_allowed(const QmpCommand *cmd, void *opaque)
 /* [re-]enable all commands, except those explicitly blocked by user */
 static void ga_enable_non_blocked(const QmpCommand *cmd, void *opaque)
 {
-    GList *blockedrpcs = opaque;
+    GAState *s = opaque;
+    GList *blockedrpcs = s->blockedrpcs;
+    GList *allowedrpcs = s->allowedrpcs;
     const char *name = qmp_command_name(cmd);
 
-    if (g_list_find_custom(blockedrpcs, name, ga_strcmp) == NULL &&
-        !qmp_command_is_enabled(cmd)) {
+    if (g_list_find_custom(blockedrpcs, name, ga_strcmp) == NULL) {
+        if (qmp_command_is_enabled(cmd)) {
+            return;
+        }
+
+        if (allowedrpcs &&
+            g_list_find_custom(allowedrpcs, name, ga_strcmp) == NULL) {
+            return;
+        }
+
         g_debug("enabling command: %s", name);
         qmp_enable_command(&ga_commands, name);
+    }
+}
+
+/* disable commands that aren't allowed */
+static void ga_disable_not_allowed(const QmpCommand *cmd, void *opaque)
+{
+    GList *allowedrpcs = opaque;
+    const char *name = qmp_command_name(cmd);
+
+    if (g_list_find_custom(allowedrpcs, name, ga_strcmp) == NULL) {
+        g_debug("disabling command: %s", name);
+        qmp_disable_command(&ga_commands, name, "the command is not allowed");
     }
 }
 
@@ -426,7 +484,7 @@ void ga_set_frozen(GAState *s)
         return;
     }
     /* disable all forbidden (for frozen state) commands */
-    qmp_for_each_command(&ga_commands, ga_disable_not_allowed, NULL);
+    qmp_for_each_command(&ga_commands, ga_disable_not_allowed_freeze, NULL);
     g_warning("disabling logging due to filesystem freeze");
     ga_disable_logging(s);
     s->frozen = true;
@@ -464,8 +522,8 @@ void ga_unset_frozen(GAState *s)
         s->deferred_options.pid_filepath = NULL;
     }
 
-    /* enable all disabled, non-blocked commands */
-    qmp_for_each_command(&ga_commands, ga_enable_non_blocked, s->blockedrpcs);
+    /* enable all disabled, non-blocked and allowed commands */
+    qmp_for_each_command(&ga_commands, ga_enable_non_blocked, s);
     s->frozen = false;
     if (!ga_delete_file(s->state_filepath_isfrozen)) {
         g_warning("unable to delete %s, fsfreeze may not function properly",
@@ -951,7 +1009,9 @@ struct GAConfig {
     const char *service;
 #endif
     gchar *bliststr; /* blockedrpcs may point to this string */
+    gchar *aliststr; /* allowedrpcs may point to this string */
     GList *blockedrpcs;
+    GList *allowedrpcs;
     int daemonize;
     GLogLevelFlags log_level;
     int dumpconf;
@@ -1022,6 +1082,19 @@ static void config_load(GAConfig *config)
         config->blockedrpcs = g_list_concat(config->blockedrpcs,
                                           split_list(config->bliststr, ","));
     }
+    if (g_key_file_has_key(keyfile, "general", "allow-rpcs", NULL)) {
+        config->aliststr =
+            g_key_file_get_string(keyfile, "general", "allow-rpcs", &gerr);
+        config->allowedrpcs = g_list_concat(config->allowedrpcs,
+                                          split_list(config->aliststr, ","));
+    }
+
+    if (g_key_file_has_key(keyfile, "general", blockrpcs_key, NULL) &&
+        g_key_file_has_key(keyfile, "general", "allow-rpcs", NULL)) {
+        g_critical("wrong config, using 'block-rpcs' and 'allow-rpcs' keys at"
+                   " the same time is not allowed");
+        exit(EXIT_FAILURE);
+    }
 
 end:
     g_key_file_free(keyfile);
@@ -1082,6 +1155,9 @@ static void config_dump(GAConfig *config)
     tmp = list_join(config->blockedrpcs, ',');
     g_key_file_set_string(keyfile, "general", "block-rpcs", tmp);
     g_free(tmp);
+    tmp = list_join(config->allowedrpcs, ',');
+    g_key_file_set_string(keyfile, "general", "allow-rpcs", tmp);
+    g_free(tmp);
 
     tmp = g_key_file_to_data(keyfile, NULL, &error);
     if (error) {
@@ -1097,8 +1173,9 @@ static void config_dump(GAConfig *config)
 
 static void config_parse(GAConfig *config, int argc, char **argv)
 {
-    const char *sopt = "hVvdm:p:l:f:F::b:s:t:Dr";
+    const char *sopt = "hVvdm:p:l:f:F::b:a:s:t:Dr";
     int opt_ind = 0, ch;
+    bool block_rpcs = false, allow_rpcs = false;
     const struct option lopt[] = {
         { "help", 0, NULL, 'h' },
         { "version", 0, NULL, 'V' },
@@ -1114,6 +1191,7 @@ static void config_parse(GAConfig *config, int argc, char **argv)
         { "daemonize", 0, NULL, 'd' },
         { "block-rpcs", 1, NULL, 'b' },
         { "blacklist", 1, NULL, 'b' },  /* deprecated alias for 'block-rpcs' */
+        { "allow-rpcs", 1, NULL, 'a' },
 #ifdef _WIN32
         { "service", 1, NULL, 's' },
 #endif
@@ -1173,6 +1251,17 @@ static void config_parse(GAConfig *config, int argc, char **argv)
             }
             config->blockedrpcs = g_list_concat(config->blockedrpcs,
                                                 split_list(optarg, ","));
+            block_rpcs = true;
+            break;
+        }
+        case 'a': {
+            if (is_help_option(optarg)) {
+                qmp_for_each_command(&ga_commands, ga_print_cmd, NULL);
+                exit(EXIT_SUCCESS);
+            }
+            config->allowedrpcs = g_list_concat(config->allowedrpcs,
+                                                split_list(optarg, ","));
+            allow_rpcs = true;
             break;
         }
 #ifdef _WIN32
@@ -1213,6 +1302,12 @@ static void config_parse(GAConfig *config, int argc, char **argv)
             exit(EXIT_FAILURE);
         }
     }
+
+    if (block_rpcs && allow_rpcs) {
+        g_critical("wrong commandline, using --block-rpcs and --allow-rpcs at the"
+                   " same time is not allowed");
+        exit(EXIT_FAILURE);
+    }
 }
 
 static void config_free(GAConfig *config)
@@ -1223,10 +1318,12 @@ static void config_free(GAConfig *config)
     g_free(config->state_dir);
     g_free(config->channel_path);
     g_free(config->bliststr);
+    g_free(config->aliststr);
 #ifdef CONFIG_FSFREEZE
     g_free(config->fsfreeze_hook);
 #endif
     g_list_free_full(config->blockedrpcs, g_free);
+    g_list_free_full(config->allowedrpcs, g_free);
     g_free(config);
 }
 
@@ -1286,6 +1383,13 @@ static GAState *initialize_agent(GAConfig *config, int socket_activation)
     g_debug("Guest agent version %s started", QEMU_FULL_VERSION);
 
 #ifdef _WIN32
+    s->event_log = RegisterEventSource(NULL, "qemu-ga");
+    if (!s->event_log) {
+        g_autofree gchar *errmsg = g_win32_error_message(GetLastError());
+        g_critical("unable to register event source: %s", errmsg);
+        return NULL;
+    }
+
     /* On win32 the state directory is application specific (be it the default
      * or a user override). We got past the command line parsing; let's create
      * the directory (with any intermediate directories). If we run into an
@@ -1310,7 +1414,7 @@ static GAState *initialize_agent(GAConfig *config, int socket_activation)
             s->deferred_options.log_filepath = config->log_filepath;
         }
         ga_disable_logging(s);
-        qmp_for_each_command(&ga_commands, ga_disable_not_allowed, NULL);
+        qmp_for_each_command(&ga_commands, ga_disable_not_allowed_freeze, NULL);
     } else {
         if (config->daemonize) {
             become_daemon(config->pid_filepath);
@@ -1334,6 +1438,15 @@ static GAState *initialize_agent(GAConfig *config, int socket_activation)
         return NULL;
     }
 
+    if (config->allowedrpcs) {
+        qmp_for_each_command(&ga_commands, ga_disable_not_allowed, config->allowedrpcs);
+        s->allowedrpcs = config->allowedrpcs;
+    }
+
+    /*
+     * Some commands can be blocked due to system limitation.
+     * Initialize blockedrpcs list even if allowedrpcs specified.
+     */
     config->blockedrpcs = ga_command_init_blockedrpcs(config->blockedrpcs);
     if (config->blockedrpcs) {
         GList *l = config->blockedrpcs;
@@ -1377,6 +1490,7 @@ static void cleanup_agent(GAState *s)
 {
 #ifdef _WIN32
     CloseHandle(s->wakeup_event);
+    CloseHandle(s->event_log);
 #endif
     if (s->command_state) {
         ga_command_state_cleanup_all(s->command_state);

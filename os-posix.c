@@ -36,6 +36,9 @@
 #include "qemu/log.h"
 #include "sysemu/runstate.h"
 #include "qemu/cutils.h"
+#include "qemu/config-file.h"
+#include "qemu/option.h"
+#include "qemu/module.h"
 
 #ifdef CONFIG_LINUX
 #include <sys/prctl.h>
@@ -146,16 +149,36 @@ int os_parse_cmd_args(int index, const char *optarg)
         }
         break;
     case QEMU_OPTION_chroot:
+        warn_report("option is deprecated, use '-run-with chroot=...' instead");
         chroot_dir = optarg;
         break;
     case QEMU_OPTION_daemonize:
         daemonize = 1;
         break;
 #if defined(CONFIG_LINUX)
+    /* deprecated */
     case QEMU_OPTION_asyncteardown:
         init_async_teardown();
         break;
 #endif
+    case QEMU_OPTION_run_with: {
+        const char *str;
+        QemuOpts *opts = qemu_opts_parse_noisily(qemu_find_opts("run-with"),
+                                                 optarg, false);
+        if (!opts) {
+            exit(1);
+        }
+#if defined(CONFIG_LINUX)
+        if (qemu_opt_get_bool(opts, "async-teardown", false)) {
+            init_async_teardown();
+        }
+#endif
+        str = qemu_opt_get(opts, "chroot");
+        if (str) {
+            chroot_dir = str;
+        }
+        break;
+    }
     default:
         return -1;
     }
@@ -272,7 +295,7 @@ void os_setup_post(void)
             error_report("not able to chdir to /: %s", strerror(errno));
             exit(1);
         }
-        TFR(fd = qemu_open_old("/dev/null", O_RDWR));
+        fd = RETRY_ON_EINTR(qemu_open_old("/dev/null", O_RDWR));
         if (fd == -1) {
             exit(1);
         }
@@ -334,3 +357,27 @@ int os_mlock(void)
     return -ENOSYS;
 #endif
 }
+
+static QemuOptsList qemu_run_with_opts = {
+    .name = "run-with",
+    .head = QTAILQ_HEAD_INITIALIZER(qemu_run_with_opts.head),
+    .desc = {
+#if defined(CONFIG_LINUX)
+        {
+            .name = "async-teardown",
+            .type = QEMU_OPT_BOOL,
+        },
+#endif
+        {
+            .name = "chroot",
+            .type = QEMU_OPT_STRING,
+        },
+        { /* end of list */ }
+    },
+};
+
+static void register_runwith(void)
+{
+    qemu_add_opts(&qemu_run_with_opts);
+}
+opts_init(register_runwith);
