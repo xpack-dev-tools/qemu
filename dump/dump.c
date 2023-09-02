@@ -14,11 +14,10 @@
 #include "qemu/osdep.h"
 #include "qemu/cutils.h"
 #include "elf.h"
-#include "exec/hwaddr.h"
+#include "qemu/bswap.h"
+#include "exec/target_page.h"
 #include "monitor/monitor.h"
-#include "sysemu/kvm.h"
 #include "sysemu/dump.h"
-#include "sysemu/memory_mapping.h"
 #include "sysemu/runstate.h"
 #include "sysemu/cpus.h"
 #include "qapi/error.h"
@@ -29,10 +28,8 @@
 #include "qemu/main-loop.h"
 #include "hw/misc/vmcoreinfo.h"
 #include "migration/blocker.h"
-
-#ifdef TARGET_X86_64
+#include "hw/core/cpu.h"
 #include "win_dump.h"
-#endif
 
 #include <zlib.h>
 #ifdef CONFIG_LZO
@@ -357,7 +354,6 @@ static void write_elf32_notes(WriteCoreDumpFunction f, DumpState *s,
 
 static void write_elf_phdr_note(DumpState *s, Error **errp)
 {
-    ERRP_GUARD();
     Elf32_Phdr phdr32;
     Elf64_Phdr phdr64;
     void *phdr;
@@ -773,7 +769,6 @@ static void dump_iterate(DumpState *s, Error **errp)
 static void dump_end(DumpState *s, Error **errp)
 {
     int rc;
-    ERRP_GUARD();
 
     if (s->elf_section_data_size) {
         s->elf_section_data = g_malloc0(s->elf_section_data_size);
@@ -909,13 +904,13 @@ static void get_note_sizes(DumpState *s, const void *note,
     if (dump_is_64bit(s)) {
         const Elf64_Nhdr *hdr = note;
         note_head_sz = sizeof(Elf64_Nhdr);
-        name_sz = tswap64(hdr->n_namesz);
-        desc_sz = tswap64(hdr->n_descsz);
+        name_sz = cpu_to_dump64(s, hdr->n_namesz);
+        desc_sz = cpu_to_dump64(s, hdr->n_descsz);
     } else {
         const Elf32_Nhdr *hdr = note;
         note_head_sz = sizeof(Elf32_Nhdr);
-        name_sz = tswap32(hdr->n_namesz);
-        desc_sz = tswap32(hdr->n_descsz);
+        name_sz = cpu_to_dump32(s, hdr->n_namesz);
+        desc_sz = cpu_to_dump32(s, hdr->n_descsz);
     }
 
     if (note_head_size) {
@@ -1298,8 +1293,8 @@ static bool get_next_page(GuestPhysBlock **blockptr, uint64_t *pfnptr,
 
             memcpy(buf + addr % page_size, hbuf, n);
             addr += n;
-            if (addr % page_size == 0) {
-                /* we filled up the page */
+            if (addr % page_size == 0 || addr >= block->target_end) {
+                /* we filled up the page or the current block is finished */
                 break;
             }
         } else {
@@ -1856,20 +1851,18 @@ static void dump_init(DumpState *s, int fd, bool has_format,
      */
     ret = cpu_get_dump_info(&s->dump_info, &s->guest_phys_blocks);
     if (ret < 0) {
-        error_setg(errp, QERR_UNSUPPORTED);
+        error_setg(errp,
+                   "dumping guest memory is not supported on this target");
         goto cleanup;
     }
 
     if (!s->dump_info.page_size) {
-        s->dump_info.page_size = TARGET_PAGE_SIZE;
+        s->dump_info.page_size = qemu_target_page_size();
     }
 
     s->note_size = cpu_get_note_size(s->dump_info.d_class,
                                      s->dump_info.d_machine, nr_cpus);
-    if (s->note_size < 0) {
-        error_setg(errp, QERR_UNSUPPORTED);
-        goto cleanup;
-    }
+    assert(s->note_size >= 0);
 
     /*
      * The goal of this block is to (a) update the previously guessed
@@ -2026,9 +2019,7 @@ static void dump_process(DumpState *s, Error **errp)
     DumpQueryResult *result = NULL;
 
     if (s->has_format && s->format == DUMP_GUEST_MEMORY_FORMAT_WIN_DMP) {
-#ifdef TARGET_X86_64
         create_win_dump(s, errp);
-#endif
     } else if (s->has_format && s->format != DUMP_GUEST_MEMORY_FORMAT_ELF) {
         create_kdump_vmcore(s, errp);
     } else {
@@ -2044,8 +2035,8 @@ static void dump_process(DumpState *s, Error **errp)
     result = qmp_query_dump(NULL);
     /* should never fail */
     assert(result);
-    qapi_event_send_dump_completed(result, !!*errp, (*errp ?
-                                                     error_get_pretty(*errp) : NULL));
+    qapi_event_send_dump_completed(result,
+                                   *errp ? error_get_pretty(*errp) : NULL);
     qapi_free_DumpQueryResult(result);
 
     dump_cleanup(s);
@@ -2131,12 +2122,10 @@ void qmp_dump_guest_memory(bool paging, const char *file,
     }
 #endif
 
-#ifndef TARGET_X86_64
-    if (has_format && format == DUMP_GUEST_MEMORY_FORMAT_WIN_DMP) {
-        error_setg(errp, "Windows dump is only available for x86-64");
+    if (has_format && format == DUMP_GUEST_MEMORY_FORMAT_WIN_DMP
+        && !win_dump_available(errp)) {
         return;
     }
-#endif
 
 #if !defined(WIN32)
     if (strstart(file, "fd:", &p)) {
@@ -2218,10 +2207,9 @@ DumpGuestMemoryCapability *qmp_query_dump_guest_memory_capability(Error **errp)
     QAPI_LIST_APPEND(tail, DUMP_GUEST_MEMORY_FORMAT_KDUMP_SNAPPY);
 #endif
 
-    /* Windows dump is available only if target is x86_64 */
-#ifdef TARGET_X86_64
-    QAPI_LIST_APPEND(tail, DUMP_GUEST_MEMORY_FORMAT_WIN_DMP);
-#endif
+    if (win_dump_available(NULL)) {
+        QAPI_LIST_APPEND(tail, DUMP_GUEST_MEMORY_FORMAT_WIN_DMP);
+    }
 
     return cap;
 }

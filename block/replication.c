@@ -179,9 +179,10 @@ static void replication_child_perm(BlockDriverState *bs, BdrvChild *c,
     return;
 }
 
-static int64_t replication_getlength(BlockDriverState *bs)
+static int64_t coroutine_fn GRAPH_RDLOCK
+replication_co_getlength(BlockDriverState *bs)
 {
-    return bdrv_getlength(bs->file->bs);
+    return bdrv_co_getlength(bs->file->bs);
 }
 
 static int replication_get_io_status(BDRVReplicationState *s)
@@ -220,10 +221,9 @@ static int replication_return_value(BDRVReplicationState *s, int ret)
     return ret;
 }
 
-static coroutine_fn int replication_co_readv(BlockDriverState *bs,
-                                             int64_t sector_num,
-                                             int remaining_sectors,
-                                             QEMUIOVector *qiov)
+static int coroutine_fn GRAPH_RDLOCK
+replication_co_readv(BlockDriverState *bs, int64_t sector_num,
+                     int remaining_sectors, QEMUIOVector *qiov)
 {
     BDRVReplicationState *s = bs->opaque;
     int ret;
@@ -244,11 +244,9 @@ static coroutine_fn int replication_co_readv(BlockDriverState *bs,
     return replication_return_value(s, ret);
 }
 
-static coroutine_fn int replication_co_writev(BlockDriverState *bs,
-                                              int64_t sector_num,
-                                              int remaining_sectors,
-                                              QEMUIOVector *qiov,
-                                              int flags)
+static int coroutine_fn GRAPH_RDLOCK
+replication_co_writev(BlockDriverState *bs, int64_t sector_num,
+                      int remaining_sectors, QEMUIOVector *qiov, int flags)
 {
     BDRVReplicationState *s = bs->opaque;
     QEMUIOVector hd_qiov;
@@ -374,9 +372,6 @@ static void reopen_backing_file(BlockDriverState *bs, bool writable,
         s->orig_secondary_read_only = bdrv_is_read_only(secondary_disk->bs);
     }
 
-    bdrv_subtree_drained_begin(hidden_disk->bs);
-    bdrv_subtree_drained_begin(secondary_disk->bs);
-
     if (s->orig_hidden_read_only) {
         QDict *opts = qdict_new();
         qdict_put_bool(opts, BDRV_OPT_READ_ONLY, !writable);
@@ -401,9 +396,6 @@ static void reopen_backing_file(BlockDriverState *bs, bool writable,
             aio_context_acquire(ctx);
         }
     }
-
-    bdrv_subtree_drained_end(hidden_disk->bs);
-    bdrv_subtree_drained_end(secondary_disk->bs);
 }
 
 static void backup_job_cleanup(BlockDriverState *bs)
@@ -764,13 +756,12 @@ static BlockDriver bdrv_replication = {
     .bdrv_close                 = replication_close,
     .bdrv_child_perm            = replication_child_perm,
 
-    .bdrv_getlength             = replication_getlength,
+    .bdrv_co_getlength          = replication_co_getlength,
     .bdrv_co_readv              = replication_co_readv,
     .bdrv_co_writev             = replication_co_writev,
 
     .is_filter                  = true,
 
-    .has_variable_length        = true,
     .strong_runtime_opts        = replication_strong_runtime_opts,
 };
 

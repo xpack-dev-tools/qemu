@@ -12,7 +12,6 @@
 #ifndef QEMU_PLUGIN_GEN_H
 #define QEMU_PLUGIN_GEN_H
 
-#include "qemu/plugin.h"
 #include "tcg/tcg.h"
 
 struct DisasContextBase;
@@ -26,26 +25,7 @@ void plugin_gen_insn_start(CPUState *cpu, const struct DisasContextBase *db);
 void plugin_gen_insn_end(void);
 
 void plugin_gen_disable_mem_helpers(void);
-void plugin_gen_empty_mem_callback(TCGv addr, uint32_t info);
-
-static inline void plugin_insn_append(abi_ptr pc, const void *from, size_t size)
-{
-    struct qemu_plugin_insn *insn = tcg_ctx->plugin_insn;
-    abi_ptr off;
-
-    if (insn == NULL) {
-        return;
-    }
-    off = pc - insn->vaddr;
-    if (off < insn->data->len) {
-        g_byte_array_set_size(insn->data, off);
-    } else if (off > insn->data->len) {
-        /* we have an unexpected gap */
-        g_assert_not_reached();
-    }
-
-    insn->data = g_byte_array_append(insn->data, from, size);
-}
+void plugin_gen_empty_mem_callback(TCGv_i64 addr, uint32_t info);
 
 #else /* !CONFIG_PLUGIN */
 
@@ -68,10 +48,7 @@ static inline void plugin_gen_tb_end(CPUState *cpu)
 static inline void plugin_gen_disable_mem_helpers(void)
 { }
 
-static inline void plugin_gen_empty_mem_callback(TCGv addr, uint32_t info)
-{ }
-
-static inline void plugin_insn_append(abi_ptr pc, const void *from, size_t size)
+static inline void plugin_gen_empty_mem_callback(TCGv_i64 addr, uint32_t info)
 { }
 
 #endif /* CONFIG_PLUGIN */
