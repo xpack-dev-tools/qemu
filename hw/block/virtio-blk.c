@@ -12,6 +12,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/defer-call.h"
 #include "qapi/error.h"
 #include "qemu/iov.h"
 #include "qemu/module.h"
@@ -64,7 +65,7 @@ static void virtio_blk_req_complete(VirtIOBlockReq *req, unsigned char status)
     iov_discard_undo(&req->inhdr_undo);
     iov_discard_undo(&req->outhdr_undo);
     virtqueue_push(req->vq, &req->elem, req->in_len);
-    if (s->dataplane_started && !s->dataplane_disabled) {
+    if (qemu_in_iothread()) {
         virtio_blk_data_plane_notify(s->dataplane, req->vq);
     } else {
         virtio_notify(vdev, req->vq);
@@ -1134,7 +1135,7 @@ void virtio_blk_handle_vq(VirtIOBlock *s, VirtQueue *vq)
     bool suppress_notifications = virtio_queue_get_notification(vq);
 
     aio_context_acquire(blk_get_aio_context(s->blk));
-    blk_io_plug();
+    defer_call_begin();
 
     do {
         if (suppress_notifications) {
@@ -1158,7 +1159,7 @@ void virtio_blk_handle_vq(VirtIOBlock *s, VirtQueue *vq)
         virtio_blk_submit_multireq(s, &mrb);
     }
 
-    blk_io_unplug();
+    defer_call_end();
     aio_context_release(blk_get_aio_context(s->blk));
 }
 

@@ -1,7 +1,6 @@
 system_ss.add([spice_headers, files('audio.c')])
 system_ss.add(files(
   'audio-hmp-cmds.c',
-  'audio_legacy.c',
   'mixeng.c',
   'noaudio.c',
   'wavaudio.c',
@@ -31,7 +30,8 @@ endforeach
 
 if dbus_display
     module_ss = ss.source_set()
-    module_ss.add(when: [gio, pixman], if_true: files('dbusaudio.c'))
+    module_ss.add(when: [gio, dbus_display1_dep, pixman],
+                  if_true: files('dbusaudio.c'))
     audio_modules += {'dbus': module_ss}
 endif
 

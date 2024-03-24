@@ -150,6 +150,8 @@ dbus_display_console_dispose(GObject *object)
     DBusDisplayConsole *ddc = DBUS_DISPLAY_CONSOLE(object);
 
     unregister_displaychangelistener(&ddc->dcl);
+    g_clear_object(&ddc->iface_touch);
+    g_clear_object(&ddc->iface_mouse);
     g_clear_object(&ddc->iface_kbd);
     g_clear_object(&ddc->iface);
     g_clear_pointer(&ddc->listeners, g_hash_table_unref);
@@ -384,7 +386,7 @@ dbus_mouse_rel_motion(DBusDisplayConsole *ddc,
 {
     trace_dbus_mouse_rel_motion(dx, dy);
 
-    if (qemu_input_is_absolute()) {
+    if (qemu_input_is_absolute(ddc->dcl.con)) {
         g_dbus_method_invocation_return_error(
             invocation, DBUS_DISPLAY_ERROR,
             DBUS_DISPLAY_ERROR_INVALID,
@@ -451,7 +453,7 @@ dbus_mouse_set_pos(DBusDisplayConsole *ddc,
 
     trace_dbus_mouse_set_pos(x, y);
 
-    if (!qemu_input_is_absolute()) {
+    if (!qemu_input_is_absolute(ddc->dcl.con)) {
         g_dbus_method_invocation_return_error(
             invocation, DBUS_DISPLAY_ERROR,
             DBUS_DISPLAY_ERROR_INVALID,
@@ -512,7 +514,7 @@ static void
 dbus_mouse_update_is_absolute(DBusDisplayConsole *ddc)
 {
     g_object_set(ddc->iface_mouse,
-                 "is-absolute", qemu_input_is_absolute(),
+                 "is-absolute", qemu_input_is_absolute(ddc->dcl.con),
                  NULL);
 }
 
