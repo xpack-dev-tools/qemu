@@ -1341,6 +1341,8 @@ static void vmxnet3_update_features(VMXNET3State *s)
                          s->lro_supported,
                          s->lro_supported,
                          0,
+                         0,
+                         0,
                          0);
     }
 }
@@ -1439,7 +1441,10 @@ static void vmxnet3_activate_device(VMXNET3State *s)
     vmxnet3_setup_rx_filtering(s);
     /* Cache fields from shared memory */
     s->mtu = VMXNET3_READ_DRV_SHARED32(d, s->drv_shmem, devRead.misc.mtu);
-    assert(VMXNET3_MIN_MTU <= s->mtu && s->mtu <= VMXNET3_MAX_MTU);
+    if (s->mtu < VMXNET3_MIN_MTU || s->mtu > VMXNET3_MAX_MTU) {
+        qemu_log_mask(LOG_GUEST_ERROR, "vmxnet3: Bad MTU size: %u\n", s->mtu);
+        return;
+    }
     VMW_CFPRN("MTU is %u", s->mtu);
 
     s->max_rx_frags =
@@ -1884,7 +1889,7 @@ vmxnet3_io_bar1_read(void *opaque, hwaddr addr, unsigned size)
             break;
 
         default:
-            VMW_CBPRN("Unknow read BAR1[%" PRIx64 "], %d bytes", addr, size);
+            VMW_CBPRN("Unknown read BAR1[%" PRIx64 "], %d bytes", addr, size);
             break;
         }
 
@@ -2073,7 +2078,7 @@ static void vmxnet3_net_init(VMXNET3State *s)
 
     s->nic = qemu_new_nic(&net_vmxnet3_info, &s->conf,
                           object_get_typename(OBJECT(s)),
-                          d->id, s);
+                          d->id, &d->mem_reentrancy_guard, s);
 
     s->peer_has_vhdr = vmxnet3_peer_has_vnet_hdr(s);
     s->tx_sop = true;

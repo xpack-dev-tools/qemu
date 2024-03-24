@@ -379,7 +379,7 @@ static inline void HNAME##_host(void *za, intptr_t off, void *host)         \
 {                                                                           \
     uint64_t *ptr = za + off;                                               \
     HOST(host, ptr[BE]);                                                    \
-    HOST(host + 1, ptr[!BE]);                                               \
+    HOST(host + 8, ptr[!BE]);                                               \
 }                                                                           \
 static inline void VNAME##_v_host(void *za, intptr_t off, void *host)       \
 {                                                                           \
@@ -573,8 +573,8 @@ void sme_ld1_mte(CPUARMState *env, void *za, uint64_t *vg,
     desc = extract32(desc, 0, SIMD_DATA_SHIFT + SVE_MTEDESC_SHIFT);
 
     /* Perform gross MTE suppression early. */
-    if (!tbi_check(desc, bit55) ||
-        tcma_check(desc, bit55, allocation_tag_from_addr(addr))) {
+    if (!tbi_check(mtedesc, bit55) ||
+        tcma_check(mtedesc, bit55, allocation_tag_from_addr(addr))) {
         mtedesc = 0;
     }
 
@@ -750,8 +750,8 @@ void sme_st1_mte(CPUARMState *env, void *za, uint64_t *vg, target_ulong addr,
     desc = extract32(desc, 0, SIMD_DATA_SHIFT + SVE_MTEDESC_SHIFT);
 
     /* Perform gross MTE suppression early. */
-    if (!tbi_check(desc, bit55) ||
-        tcma_check(desc, bit55, allocation_tag_from_addr(addr))) {
+    if (!tbi_check(mtedesc, bit55) ||
+        tcma_check(mtedesc, bit55, allocation_tag_from_addr(addr))) {
         mtedesc = 0;
     }
 
@@ -1037,10 +1037,9 @@ void HELPER(sme_fmopa_h)(void *vza, void *vzn, void *vzm, void *vpn,
 
                         m = f16mop_adj_pair(m, pcol, 0);
                         *a = f16_dotadd(*a, n, m, &fpst_std, &fpst_odd);
-
-                        col += 4;
-                        pcol >>= 4;
                     }
+                    col += 4;
+                    pcol >>= 4;
                 } while (col & 15);
             }
             row += 4;
@@ -1073,10 +1072,9 @@ void HELPER(sme_bfmopa)(void *vza, void *vzn, void *vzm, void *vpn,
 
                         m = f16mop_adj_pair(m, pcol, 0);
                         *a = bfdotadd(*a, n, m);
-
-                        col += 4;
-                        pcol >>= 4;
                     }
+                    col += 4;
+                    pcol >>= 4;
                 } while (col & 15);
             }
             row += 4;
